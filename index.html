@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Let's Go Out! ✨</title>
-    <link rel="stylesheet" href="/styles.css?v=7">
+    <link rel="stylesheet" href="/styles.css?v=8">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#ff758f">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -12,7 +12,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Let's Go Out">
-    <script src="/app.js?v=7" defer></script>
+    <script src="/app.js?v=8" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -39,21 +39,9 @@
             <label for="asker-name">Your Name</label>
             <input type="text" id="asker-name" maxlength="60" placeholder="Alex" autocomplete="name">
         </div>
-        <div class="slot-selectors">
-            <div class="form-group half-width">
-                <label for="recipient-name">Their Name</label>
-                <input type="text" id="recipient-name" maxlength="60" placeholder="Taylor" autocomplete="off">
-            </div>
-            <div class="form-group half-width">
-                <label for="recipient-pronoun">Their Pronouns</label>
-                <div class="select-wrapper">
-                    <select id="recipient-pronoun">
-                        <option value="her">She/Her</option>
-                        <option value="him">He/Him</option>
-                        <option value="them">They/Them</option>
-                    </select>
-                </div>
-            </div>
+        <div class="form-group">
+            <label for="recipient-name">Their Name</label>
+            <input type="text" id="recipient-name" maxlength="60" placeholder="Taylor" autocomplete="off">
         </div>
         <div class="form-group">
             <span class="form-label">Date Ideas (Pick Multiple)</span>

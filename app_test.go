@@ -67,7 +67,8 @@ func decodeResponse(t *testing.T, recorder *httptest.ResponseRecorder, dst any) 
 
 func validCreate(now time.Time) createRequest {
 	return createRequest{
-		AskerName: "Alex", RecipientName: "Taylor", Pronoun: "them",
+		AskerName:     "Alex",
+		RecipientName: "Taylor",
 		OfferedIdeas:  []string{"pizza", "coffee"},
 		ProposedSlots: []string{now.Add(2 * time.Hour).Format(time.RFC3339), now.Add(25 * time.Hour).Format(time.RFC3339)},
 	}
@@ -128,7 +129,6 @@ func TestValidation(t *testing.T) {
 	}{
 		{"empty name", func(r *createRequest) { r.AskerName = " " }},
 		{"long name", func(r *createRequest) { r.RecipientName = strings.Repeat("é", 61) }},
-		{"pronoun", func(r *createRequest) { r.Pronoun = "other" }},
 		{"no ideas", func(r *createRequest) { r.OfferedIdeas = nil }},
 		{"unknown idea", func(r *createRequest) { r.OfferedIdeas = []string{"moon"} }},
 		{"duplicate idea", func(r *createRequest) { r.OfferedIdeas = []string{"pizza", "pizza"} }},
@@ -167,6 +167,70 @@ func TestValidation(t *testing.T) {
 	}
 	if err := validateAcceptance(acceptRequest{CustomIdea: "Arcade", SelectedSlotIndex: &zero}, rec); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
+	db, err := openDatabase(filepath.Join(t.TempDir(), "upgrade.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	initialSchema, err := embeddedFiles.ReadFile("migrations/001_initial.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(string(initialSchema)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES (1, ?)`, time.Now().Unix()); err != nil {
+		t.Fatal(err)
+	}
+
+	recipientToken, recipientHash, err := newToken(bytes.NewReader(bytes.Repeat([]byte{1}, 16)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusToken, statusHash, err := newToken(bytes.NewReader(bytes.Repeat([]byte{2}, 16)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
+	acceptedAt := now.Add(time.Hour)
+	expiresAt := now.Add(initialLifetime + extendedLifetime)
+	if _, err := db.Exec(`INSERT INTO invites (
+		recipient_token_hash, status_token_hash, asker_name, recipient_name, pronoun,
+		offered_ideas, proposed_slots, created_at, accepted_at, expires_at,
+		selected_ideas, custom_idea, selected_slot_index
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], "Alex", "Taylor", "them", `["pizza"]`, `["2030-01-02T14:00:00Z"]`, now.Unix(), acceptedAt.Unix(), expiresAt.Unix(), `["pizza"]`, "Arcade", 0); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := applyMigrations(db); err != nil {
+		t.Fatal(err)
+	}
+	var pronounColumns int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('invites') WHERE name = 'pronoun'`).Scan(&pronounColumns); err != nil {
+		t.Fatal(err)
+	}
+	if pronounColumns != 0 {
+		t.Fatal("pronoun column still exists after migration")
+	}
+
+	a := newApp(db, config{}, embeddedFiles, func() time.Time { return now }, rand.Reader)
+	record, err := a.findInvite(context.Background(), "recipient_token_hash", recipientToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.AskerName != "Alex" || record.RecipientName != "Taylor" || len(record.OfferedIdeas) != 1 || record.OfferedIdeas[0] != "pizza" ||
+		len(record.ProposedSlots) != 1 || record.ProposedSlots[0] != "2030-01-02T14:00:00Z" || record.AcceptedAt == nil || !record.AcceptedAt.Equal(acceptedAt) ||
+		!record.ExpiresAt.Equal(expiresAt) || len(record.SelectedIdeas) != 1 || record.SelectedIdeas[0] != "pizza" || record.CustomIdea != "Arcade" ||
+		record.SelectedSlotIndex == nil || *record.SelectedSlotIndex != 0 {
+		t.Fatalf("invite changed during migration: %+v", record)
+	}
+	if _, err := a.findInvite(context.Background(), "status_token_hash", statusToken); err != nil {
+		t.Fatalf("status token did not survive migration: %v", err)
 	}
 }
 
@@ -219,6 +283,9 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	decodeResponse(t, view, &invite)
 	if _, leaked := invite["status_token"]; leaked {
 		t.Fatal("recipient response leaked status token")
+	}
+	if _, present := invite["pronoun"]; present {
+		t.Fatal("recipient response contains removed pronoun field")
 	}
 
 	invalidAccept := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken})
@@ -339,6 +406,15 @@ func TestRateLimitsOriginBodyAndUnknownFields(t *testing.T) {
 	a := testApp(t, &now)
 	a.cfg.CreateHourlyLimit = 2
 	handler := a.routes()
+	legacyCreate := map[string]any{
+		"asker_name": "Alex", "recipient_name": "Taylor", "pronoun": "them",
+		"offered_ideas":  []string{"pizza"},
+		"proposed_slots": []string{now.Add(2 * time.Hour).Format(time.RFC3339)},
+	}
+	legacyResponse := request(t, handler, http.MethodPost, "/api/invites", legacyCreate)
+	if legacyResponse.Code != http.StatusBadRequest {
+		t.Fatalf("legacy pronoun field = %d: %s", legacyResponse.Code, legacyResponse.Body.String())
+	}
 	for i, want := range []int{http.StatusCreated, http.StatusCreated, http.StatusTooManyRequests} {
 		response := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
 		if response.Code != want {
@@ -458,8 +534,18 @@ func TestHealthStaticAndServiceWorkerSeparation(t *testing.T) {
 		t.Fatalf("health = %d", health.Code)
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
-	if index.Code != http.StatusOK || !strings.Contains(index.Body.String(), `<script src="/app.js?v=7" defer></script>`) {
+	if index.Code != http.StatusOK || !strings.Contains(index.Body.String(), `<script src="/app.js?v=8" defer></script>`) {
 		t.Fatalf("static index = %d", index.Code)
+	}
+	if strings.Contains(index.Body.String(), "recipient-pronoun") {
+		t.Fatal("static index still contains pronoun selector")
+	}
+	client, err := os.ReadFile("app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(client), ".pronoun") || !strings.Contains(string(client), "wants to take you out! Pick your ideal date:") {
+		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
 	worker, err := os.ReadFile("service-worker.js")
 	if err != nil {
@@ -468,6 +554,9 @@ func TestHealthStaticAndServiceWorkerSeparation(t *testing.T) {
 	text := string(worker)
 	if !strings.Contains(text, "url.pathname.startsWith('/api/')") || !strings.Contains(text, "ALLOWED_PATHS.has") || strings.Contains(text, "cache.put(request") {
 		t.Fatal("service worker does not enforce API/static cache separation")
+	}
+	if !strings.Contains(text, "letsgoout-v8") || !strings.Contains(text, "/app.js?v=8") || !strings.Contains(text, "/styles.css?v=8") {
+		t.Fatal("service worker cache version was not bumped")
 	}
 }
 

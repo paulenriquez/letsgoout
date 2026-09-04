@@ -1,9 +1,9 @@
-const CACHE = 'letsgoout-v7';
+const CACHE = 'letsgoout-v8';
 const ASSETS = [
     '/',
     '/index.html',
-    '/styles.css?v=7',
-    '/app.js?v=7',
+    '/styles.css?v=8',
+    '/app.js?v=8',
     '/manifest.webmanifest',
     '/icon-192.png',
     '/icon-512.png',

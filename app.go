@@ -30,8 +30,7 @@ const (
 )
 
 var (
-	validPronouns = map[string]bool{"her": true, "him": true, "them": true}
-	validIdeas    = map[string]bool{
+	validIdeas = map[string]bool{
 		"pizza": true, "ramen": true, "coffee": true, "drinks": true,
 		"steak": true, "gym": true, "walk": true, "run": true, "any": true,
 	}
@@ -107,7 +106,6 @@ func (a *app) staticHandler() http.Handler {
 type createRequest struct {
 	AskerName     string   `json:"asker_name"`
 	RecipientName string   `json:"recipient_name"`
-	Pronoun       string   `json:"pronoun"`
 	OfferedIdeas  []string `json:"offered_ideas"`
 	ProposedSlots []string `json:"proposed_slots"`
 }
@@ -127,7 +125,6 @@ type inviteRecord struct {
 	ID                int64
 	AskerName         string
 	RecipientName     string
-	Pronoun           string
 	OfferedIdeas      []string
 	ProposedSlots     []string
 	CreatedAt         time.Time
@@ -188,9 +185,9 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 	tx, err := a.db.BeginTx(r.Context(), nil)
 	if err == nil {
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO invites (
-			recipient_token_hash, status_token_hash, asker_name, recipient_name, pronoun,
+			recipient_token_hash, status_token_hash, asker_name, recipient_name,
 			offered_ideas, proposed_slots, created_at, expires_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], strings.TrimSpace(req.AskerName), strings.TrimSpace(req.RecipientName), req.Pronoun, ideasJSON, slotsJSON, now.Unix(), expires.Unix())
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], strings.TrimSpace(req.AskerName), strings.TrimSpace(req.RecipientName), ideasJSON, slotsJSON, now.Unix(), expires.Unix())
 	}
 	if err == nil && !a.cfg.DisableRateLimits {
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO creation_events(ip_hash, created_at) VALUES (?, ?)`, ipHash, now.Unix())
@@ -233,8 +230,8 @@ func (a *app) handleInviteView(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"asker_name": record.AskerName, "recipient_name": record.RecipientName,
-		"pronoun": record.Pronoun, "offered_ideas": record.OfferedIdeas,
-		"proposed_slots": record.ProposedSlots, "expires_at": record.ExpiresAt.Format(time.RFC3339),
+		"offered_ideas": record.OfferedIdeas, "proposed_slots": record.ProposedSlots,
+		"expires_at": record.ExpiresAt.Format(time.RFC3339),
 	})
 }
 
@@ -366,14 +363,14 @@ func (a *app) findInvite(ctx context.Context, column, token string) (inviteRecor
 	if !ok {
 		return inviteRecord{}, sql.ErrNoRows
 	}
-	query := `SELECT id, asker_name, recipient_name, pronoun, offered_ideas, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
+	query := `SELECT id, asker_name, recipient_name, offered_ideas, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
 	var rec inviteRecord
 	var ideasJSON, slotsJSON string
 	var created, expires int64
 	var accepted sql.NullInt64
 	var selectedJSON, custom sql.NullString
 	var slotIndex sql.NullInt64
-	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &rec.Pronoun, &ideasJSON, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex)
+	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &ideasJSON, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex)
 	if err != nil {
 		return inviteRecord{}, err
 	}
@@ -402,9 +399,6 @@ func (a *app) findInvite(ctx context.Context, column, token string) (inviteRecor
 func validateCreate(req createRequest, now time.Time) error {
 	if !validName(req.AskerName) || !validName(req.RecipientName) {
 		return errors.New("names must be between 1 and 60 characters")
-	}
-	if !validPronouns[req.Pronoun] {
-		return errors.New("invalid pronoun")
 	}
 	if len(req.OfferedIdeas) < 1 || len(req.OfferedIdeas) > len(validIdeas) {
 		return errors.New("choose at least one valid date idea")

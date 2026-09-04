@@ -81,8 +81,8 @@ function isStringArray(value, min, max) {
 
 function isInviteResponse(data) {
     return data && typeof data.asker_name === 'string' && typeof data.recipient_name === 'string' &&
-        ['her', 'him', 'them'].includes(data.pronoun) && isStringArray(data.offered_ideas, 1, 9) &&
-        data.offered_ideas.every((id) => ideaByID.has(id)) && isStringArray(data.proposed_slots, 1, 5) &&
+        isStringArray(data.offered_ideas, 1, 9) && data.offered_ideas.every((id) => ideaByID.has(id)) &&
+        isStringArray(data.proposed_slots, 1, 5) &&
         data.proposed_slots.every((slot) => !Number.isNaN(Date.parse(slot))) && typeof data.expires_at === 'string';
 }
 
@@ -218,7 +218,6 @@ async function createInvite() {
     const request = {
         asker_name: byID('asker-name').value.trim(),
         recipient_name: byID('recipient-name').value.trim(),
-        pronoun: byID('recipient-pronoun').value,
         offered_ideas: [...selectedIdeas],
         proposed_slots: collectSlots()
     };
@@ -268,8 +267,7 @@ function renderRecipientView(data, isPreview) {
     recipientSelectedIdeas.clear();
     byID('recipient-emoji').textContent = '✨';
     byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
-    const objectivePronoun = data.pronoun === 'him' ? 'him' : data.pronoun === 'them' ? 'them' : 'her';
-	byID('recipient-subtitle').textContent = `${data.asker_name} wants to take you out! Customize your ideal date with ${objectivePronoun}:`;
+	byID('recipient-subtitle').textContent = `${data.asker_name} wants to take you out! Pick your ideal date:`;
 	byID('other-freeform').value = '';
 	showError('accept-error', '');
 	document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.remove('hidden'));

@@ -67,7 +67,6 @@ input:focus, select:focus { border-color: var(--primary); background-color: #fff
     border-radius: 16px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;
 }
 .slot-selectors { display: flex; flex-direction: row; gap: 8px; width: 100%; }
-.half-width { width: 50%; }
 .add-slot-btn {
     background: transparent; color: var(--primary); border: none; font-size: 0.8rem;
     font-weight: 600; cursor: pointer; text-align: left; display: inline-block; padding: 4px;
