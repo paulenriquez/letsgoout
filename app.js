@@ -467,22 +467,33 @@ function startCelebration() {
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const confetti = byID('celebration-confetti');
-    const pieceCount = window.innerWidth < 480 ? 120 : 180;
-    const immediatePieceCount = window.innerWidth < 480 ? 72 : 108;
+    const pieceCount = window.innerWidth < 480 ? 160 : 240;
+    const waveSeconds = 1.2;
+    const minimumFallSeconds = 3;
+    const fallVarianceSeconds = 0.8;
     for (let index = 0; index < pieceCount; index += 1) {
         const piece = makeElement('span', 'confetti-piece', celebrationEmojis[index % celebrationEmojis.length]);
-        const isHeroPiece = index % 7 === 0;
-        const delay = index < immediatePieceCount ? Math.random() * 3.45 - 3 : 0.4 + Math.random() * 4.2;
+        const isHeroPiece = index % 5 === 0;
+        const horizontalSlot = index % 14;
+        const startX = -4 + horizontalSlot * (108 / 13) + (Math.random() * 4.8 - 2.4);
+        let drift = Math.random() * 36 - 18;
+        if (horizontalSlot < 3) drift = Math.random() * 18;
+        if (horizontalSlot > 10) drift = Math.random() * -18;
+        const duration = minimumFallSeconds + Math.random() * fallVarianceSeconds;
+        const delay = -duration + ((index + Math.random()) / pieceCount) * (waveSeconds + duration);
+        const size = isHeroPiece ? 4.5 + Math.random() * 1.5 : 2.25 + Math.random() * 1.75;
         piece.setAttribute('aria-hidden', 'true');
-        piece.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
-        piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 50 - 25)}vw`);
+        piece.style.setProperty('--confetti-x', `${startX.toFixed(2)}vw`);
+        piece.style.setProperty('--confetti-drift', `${drift.toFixed(2)}vw`);
         piece.style.setProperty('--confetti-spin', `${Math.round(Math.random() * 1080 - 540)}deg`);
         piece.style.setProperty('--confetti-delay', `${delay.toFixed(2)}s`);
-        piece.style.setProperty('--confetti-duration', `${(3.2 + Math.random() * 1.2).toFixed(2)}s`);
-        piece.style.setProperty('--confetti-size', `${(2.25 + Math.random() * 1.75 + (isHeroPiece ? 0.9 : 0)).toFixed(2)}rem`);
+        piece.style.setProperty('--confetti-duration', `${duration.toFixed(2)}s`);
+        piece.style.setProperty('--confetti-size', `${size.toFixed(2)}rem`);
+        piece.addEventListener('animationend', () => piece.remove(), { once: true });
         confetti.appendChild(piece);
     }
-    celebrationTimer = window.setTimeout(clearCelebration, 9400);
+    const maximumFallSeconds = minimumFallSeconds + fallVarianceSeconds;
+    celebrationTimer = window.setTimeout(clearCelebration, (waveSeconds + maximumFallSeconds + 0.1) * 1000);
 }
 
 function renderRecipientView(data, source = '') {
