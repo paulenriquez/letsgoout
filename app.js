@@ -23,8 +23,13 @@ let currentStatusToken = '';
 let previewMode = false;
 let previewSource = '';
 let celebrationTimer = 0;
+let statusRefreshTimer = 0;
+let statusCountdownTimer = 0;
+let nextStatusRefreshAt = 0;
+let statusAutoRefreshEnabled = false;
 
 const celebrationEmojis = ['😍'];
+const statusRefreshInterval = 15000;
 
 const byID = (id) => document.getElementById(id);
 const allScreens = ['landing-page', 'asker-card', 'share-card', 'recipient-card', 'status-card', 'unavailable-card'];
@@ -466,9 +471,9 @@ function updateAcceptButton() {
         return;
     }
     const pickedTime = document.querySelector('input[name="time-radio"]:checked');
-    const hasOffered = [...recipientSelectedIdeas].some((id) => id !== 'other');
-    const hasCustom = recipientSelectedIdeas.has('other') && byID('other-freeform').value.trim().length > 0;
-    byID('yes-btn').disabled = !pickedTime || (!hasOffered && !hasCustom);
+    const otherSelected = recipientSelectedIdeas.has('other');
+    const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0;
+    byID('yes-btn').disabled = !pickedTime || recipientSelectedIdeas.size === 0 || otherIncomplete;
 }
 
 function clearCelebration() {
@@ -529,13 +534,16 @@ function renderRecipientView(data, source = '') {
     byID('accepted-message-text').textContent = '';
     byID('recipient-emoji').textContent = '✨';
     byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
-    byID('recipient-subtitle').textContent = data.sender_message || `${data.asker_name} wants to take you out! Pick your ideal date:`;
+    byID('recipient-subtitle').textContent = data.sender_message;
+    byID('recipient-subtitle').classList.toggle('hidden', !data.sender_message);
     byID('recipient-message-label').textContent = `3. Message for ${data.asker_name} (Optional)`;
     byID('recipient-message').placeholder = `Write something for ${data.asker_name}…`;
     byID('recipient-message').value = '';
     byID('recipient-message').disabled = previewMode;
     byID('recipient-message-count').textContent = '0';
     byID('other-freeform').value = '';
+    byID('other-freeform').setAttribute('aria-required', 'false');
+    byID('other-freeform').setAttribute('aria-invalid', 'false');
     showError('accept-error', '');
     showError('preview-error', '');
     document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.remove('hidden'));
@@ -566,7 +574,9 @@ function renderRecipientView(data, source = '') {
         const selected = recipientSelectedIdeas.has('other');
         card.classList.toggle('selected', selected);
         byID('other-input-container').classList.toggle('hidden', !selected);
-        window.requestAnimationFrame(setupInitialNoButtonPosition);
+        byID('other-freeform').setAttribute('aria-required', String(selected));
+        if (!selected) byID('other-freeform').setAttribute('aria-invalid', 'false');
+        prepareNoButtonPosition();
         updateAcceptButton();
     };
     ideasGrid.appendChild(createIdeaCard(other, selectOther, !previewMode));
@@ -595,7 +605,6 @@ function renderRecipientView(data, source = '') {
     prepareNoButtonPosition();
     showScreen('recipient-card');
     updateAcceptButton();
-    if (!previewMode) window.requestAnimationFrame(setupInitialNoButtonPosition);
 }
 
 function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, recipientMessage) {
@@ -613,6 +622,7 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     );
     byID('recipient-title').textContent = `${currentInvite.recipient_name}, it’s a date!`;
     byID('recipient-subtitle').textContent = `Your response has been shared with ${currentInvite.asker_name}`;
+    byID('recipient-subtitle').classList.remove('hidden');
     byID('accepted-ideas-icon').textContent = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])].join(' ');
     byID('accepted-ideas').textContent = [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ');
     byID('accepted-slot').textContent = slotLabel;
@@ -635,10 +645,19 @@ function renderAcceptedResponse(data) {
 
 async function acceptInvite() {
     if (previewMode) return;
+    const otherInput = byID('other-freeform');
+    const otherSelected = recipientSelectedIdeas.has('other');
+    const customIdea = otherSelected ? otherInput.value.trim() : '';
+    if (otherSelected && !customIdea) {
+        otherInput.setAttribute('aria-invalid', 'true');
+        showError('accept-error', 'Tell us what you would prefer for “Other”.');
+        otherInput.focus();
+        updateAcceptButton();
+        return;
+    }
     const selectedTime = document.querySelector('input[name="time-radio"]:checked');
     if (!selectedTime || byID('yes-btn').disabled) return;
     const selectedIDs = [...recipientSelectedIdeas].filter((id) => id !== 'other');
-    const customIdea = recipientSelectedIdeas.has('other') ? byID('other-freeform').value.trim() : '';
     const recipientMessage = byID('recipient-message').value.trim();
     const slotIndex = Number(selectedTime.value);
     const labels = selectedIDs.map((id) => ideaLabel(id, currentInvite.custom_ideas));
@@ -682,18 +701,48 @@ function ideaEmoji(id, customIdeas) {
     return custom ? custom.emoji : '✨';
 }
 
+function clearStatusRefreshSchedule(message = '') {
+    window.clearTimeout(statusRefreshTimer);
+    window.clearInterval(statusCountdownTimer);
+    statusRefreshTimer = 0;
+    statusCountdownTimer = 0;
+    nextStatusRefreshAt = 0;
+    const nextCheck = byID('status-next-check');
+    nextCheck.textContent = message;
+    nextCheck.classList.toggle('hidden', !message);
+}
+
+function updateStatusCountdown() {
+    const seconds = Math.max(0, Math.ceil((nextStatusRefreshAt - Date.now()) / 1000));
+    const nextCheck = byID('status-next-check');
+    nextCheck.textContent = `Checking again in ${seconds}s`;
+    nextCheck.classList.remove('hidden');
+}
+
+function scheduleStatusRefresh() {
+    clearStatusRefreshSchedule();
+    if (!statusAutoRefreshEnabled || !currentStatusToken || document.hidden || !navigator.onLine) return;
+    nextStatusRefreshAt = Date.now() + statusRefreshInterval;
+    updateStatusCountdown();
+    statusCountdownTimer = window.setInterval(updateStatusCountdown, 1000);
+    statusRefreshTimer = window.setTimeout(refreshStatus, statusRefreshInterval);
+}
+
 function renderStatus(data) {
     const details = byID('status-details');
-    const inviteLink = byID('status-invite-link');
+    const inviteShare = byID('status-invite-share');
     const acceptedRow = byID('status-accepted-row');
+    const updatedRow = byID('status-updated-row');
+    statusAutoRefreshEnabled = data.status === 'pending';
     details.replaceChildren();
     byID('status-title').textContent = `${data.recipient_name}'s Invite`;
     if (data.invite_url) {
-        inviteLink.href = data.invite_url;
-        inviteLink.classList.remove('hidden');
+        byID('status-invite-label').textContent = `Share this to ${data.recipient_name}`;
+        byID('status-invite-url').textContent = data.invite_url;
+        inviteShare.classList.remove('hidden');
     } else {
-        inviteLink.removeAttribute('href');
-        inviteLink.classList.add('hidden');
+        byID('status-invite-url').textContent = '';
+        inviteShare.classList.add('hidden');
     }
     if (data.status === 'pending') {
         byID('status-emoji').textContent = '💌';
@@ -717,17 +766,25 @@ function renderStatus(data) {
     }
     byID('status-expires').textContent = formatStatusDate(data.expires_at);
     byID('status-expires').dateTime = data.expires_at;
-    const checkedAt = new Date();
-    byID('status-updated').textContent = formatStatusDate(checkedAt);
-    byID('status-updated').dateTime = checkedAt.toISOString();
+    updatedRow.classList.toggle('hidden', !statusAutoRefreshEnabled);
+    if (statusAutoRefreshEnabled) {
+        const checkedAt = new Date();
+        byID('status-updated').textContent = formatStatusDate(checkedAt);
+        byID('status-updated').dateTime = checkedAt.toISOString();
+    } else {
+        byID('status-updated').textContent = '';
+        byID('status-updated').removeAttribute('datetime');
+    }
     byID('status-metadata').classList.remove('hidden');
     showError('status-error', '');
 }
 
 async function refreshStatus() {
-    if (!currentStatusToken || document.hidden || !navigator.onLine) return;
-    const button = byID('status-refresh-btn');
-    button.disabled = true;
+    if (!currentStatusToken || document.hidden || !navigator.onLine) {
+        clearStatusRefreshSchedule(currentStatusToken && !navigator.onLine ? 'Checking resumes when online' : '');
+        return;
+    }
+    clearStatusRefreshSchedule();
     try {
         const data = await postJSON('/api/status/view', { token: currentStatusToken });
         if (!isStatusResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
@@ -735,7 +792,7 @@ async function refreshStatus() {
     } catch (error) {
         showError('status-error', error.status === 404 ? 'This invitation is unavailable or has expired.' : (error.message || 'Could not refresh the status.'));
     } finally {
-        button.disabled = false;
+        scheduleStatusRefresh();
     }
 }
 
@@ -746,13 +803,14 @@ async function deleteInvite() {
     try {
         await postJSON('/api/status/delete', { token: currentStatusToken });
         currentStatusToken = '';
+        statusAutoRefreshEnabled = false;
+        clearStatusRefreshSchedule();
         byID('status-emoji').textContent = '🗑️';
         byID('status-title').textContent = 'Invite Deleted';
         byID('status-summary').textContent = 'Both invitation links have been permanently deleted.';
         byID('status-details').classList.add('hidden');
-        byID('status-invite-link').classList.add('hidden');
+        byID('status-invite-share').classList.add('hidden');
         byID('status-metadata').classList.add('hidden');
-        byID('status-refresh-btn').classList.add('hidden');
         button.classList.add('hidden');
         showError('status-error', '');
     } catch (error) {
@@ -778,34 +836,98 @@ async function loadInvite(token) {
 function routeFromHash() {
     const inviteMatch = location.hash.match(/^#\/invite\/([A-Za-z0-9_-]{22})$/);
     const statusMatch = location.hash.match(/^#\/status\/([A-Za-z0-9_-]{22})$/);
-    if (inviteMatch) { currentStatusToken = ''; loadInvite(inviteMatch[1]); return; }
+    if (inviteMatch) {
+        currentStatusToken = '';
+        statusAutoRefreshEnabled = false;
+        clearStatusRefreshSchedule();
+        loadInvite(inviteMatch[1]);
+        return;
+    }
     if (statusMatch) {
         currentInviteToken = '';
         currentStatusToken = statusMatch[1];
+        statusAutoRefreshEnabled = true;
         showScreen('status-card');
         refreshStatus();
         return;
     }
     currentInviteToken = '';
     currentStatusToken = '';
+    statusAutoRefreshEnabled = false;
+    clearStatusRefreshSchedule();
     showScreen('landing-page');
 }
 
 function setupNoButton() {
     const noButton = byID('no-btn');
     function dodge() {
-        if (noButton.style.position !== 'fixed') setupInitialNoButtonPosition();
-        noButton.getBoundingClientRect();
+        if (noButton.parentElement !== document.body) setupInitialNoButtonPosition();
+        const current = noButton.getBoundingClientRect();
         noButton.classList.add('dodge-ready');
         const padding = 30;
         const maxX = Math.max(padding, window.innerWidth - noButton.offsetWidth - padding);
         const maxY = Math.max(padding, window.innerHeight - noButton.offsetHeight - padding);
-        noButton.style.left = `${Math.floor(Math.random() * (maxX - padding + 1) + padding)}px`;
-        noButton.style.top = `${Math.floor(Math.random() * (maxY - padding + 1) + padding)}px`;
+        const acceptRect = byID('yes-btn').getBoundingClientRect();
+        const overlapGap = 12;
+        const overlapsAccept = (target) => (
+            target.x < acceptRect.right + overlapGap
+            && target.x + noButton.offsetWidth > acceptRect.left - overlapGap
+            && target.y < acceptRect.bottom + overlapGap
+            && target.y + noButton.offsetHeight > acceptRect.top - overlapGap
+        );
+        const pathCrossesAccept = (target) => {
+            const bounds = {
+                left: acceptRect.left - noButton.offsetWidth - overlapGap,
+                right: acceptRect.right + overlapGap,
+                top: acceptRect.top - noButton.offsetHeight - overlapGap,
+                bottom: acceptRect.bottom + overlapGap
+            };
+            let entry = 0;
+            let exit = 1;
+            for (const [start, delta, minimum, maximum] of [
+                [current.left, target.x - current.left, bounds.left, bounds.right],
+                [current.top, target.y - current.top, bounds.top, bounds.bottom]
+            ]) {
+                if (Math.abs(delta) < 0.001) {
+                    if (start < minimum || start > maximum) return false;
+                    continue;
+                }
+                const first = (minimum - start) / delta;
+                const second = (maximum - start) / delta;
+                entry = Math.max(entry, Math.min(first, second));
+                exit = Math.min(exit, Math.max(first, second));
+                if (entry > exit) return false;
+            }
+            return exit > 0.001 && entry < 0.999;
+        };
+        const distanceTo = (target) => Math.hypot(target.x - current.left, target.y - current.top);
+        const safeTargets = [
+            { x: padding, y: padding },
+            { x: maxX, y: padding },
+            { x: padding, y: maxY },
+            { x: maxX, y: maxY }
+        ].filter((target) => !overlapsAccept(target) && !pathCrossesAccept(target));
+        if (safeTargets.length === 0) return;
+        const farthestTarget = safeTargets.reduce((farthest, target) => (
+            distanceTo(target) > distanceTo(farthest) ? target : farthest
+        ));
+        const minimumTravel = Math.min(120, distanceTo(farthestTarget));
+        let target = farthestTarget;
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            const candidate = {
+                x: Math.floor(Math.random() * (maxX - padding + 1) + padding),
+                y: Math.floor(Math.random() * (maxY - padding + 1) + padding)
+            };
+            if (!overlapsAccept(candidate) && !pathCrossesAccept(candidate) && distanceTo(candidate) >= minimumTravel) {
+                target = candidate;
+                break;
+            }
+        }
+        noButton.style.left = `${target.x + window.scrollX}px`;
+        noButton.style.top = `${target.y + window.scrollY}px`;
     }
     noButton.addEventListener('mouseover', dodge);
     noButton.addEventListener('touchstart', (event) => { event.preventDefault(); dodge(); }, { passive: false });
-    window.addEventListener('resize', setupInitialNoButtonPosition);
 }
 
 function setupInitialNoButtonPosition() {
@@ -814,13 +936,16 @@ function setupInitialNoButtonPosition() {
     if (card.classList.contains('hidden')) return;
     prepareNoButtonPosition();
     const rect = noButton.getBoundingClientRect();
-    noButton.style.left = `${rect.left}px`;
-    noButton.style.top = `${rect.top}px`;
-    noButton.style.position = 'fixed';
+    document.body.appendChild(noButton);
+    noButton.style.left = `${rect.left + window.scrollX}px`;
+    noButton.style.top = `${rect.top + window.scrollY}px`;
+    noButton.style.position = 'absolute';
 }
 
 function prepareNoButtonPosition() {
     const noButton = byID('no-btn');
+    const wrapper = document.querySelector('.no-btn-wrapper');
+    if (noButton.parentElement !== wrapper) wrapper.appendChild(noButton);
     noButton.classList.remove('dodge-ready');
     noButton.style.position = '';
     noButton.style.left = '';
@@ -840,6 +965,8 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
     byID('generated-status-box').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
     byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
+    byID('status-invite-box').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
+    byID('status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
     byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
     byID('share-back-btn').addEventListener('click', startNewInvite);
     byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));
@@ -849,15 +976,19 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('recipient-message').addEventListener('input', () => {
         byID('recipient-message-count').textContent = String([...byID('recipient-message').value].length);
     });
-    byID('other-freeform').addEventListener('input', updateAcceptButton);
+    byID('other-freeform').addEventListener('input', () => {
+        if (byID('other-freeform').value.trim()) byID('other-freeform').setAttribute('aria-invalid', 'false');
+        updateAcceptButton();
+    });
     byID('yes-btn').addEventListener('click', acceptInvite);
-    byID('status-refresh-btn').addEventListener('click', refreshStatus);
     byID('status-delete-btn').addEventListener('click', deleteInvite);
     byID('unavailable-create-btn').addEventListener('click', startNewInvite);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearStatusRefreshSchedule(); else if (statusAutoRefreshEnabled) refreshStatus();
+    });
     document.addEventListener('click', () => closeEmojiPalettes());
-    window.addEventListener('online', refreshStatus);
-    window.setInterval(refreshStatus, 15000);
+    window.addEventListener('online', () => { if (statusAutoRefreshEnabled) refreshStatus(); });
+    window.addEventListener('offline', () => clearStatusRefreshSchedule('Checking resumes when online'));
     window.addEventListener('hashchange', routeFromHash);
     routeFromHash();
 });

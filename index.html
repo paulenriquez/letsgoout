@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=33">
-    <script src="/app.js?v=33" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=37">
+    <script src="/app.js?v=44" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -102,7 +102,8 @@
         </div>
         <div class="header-illustration" id="recipient-emoji">✨</div>
         <h2 id="recipient-title">Hey! 💕</h2>
-        <p id="recipient-subtitle">Pick your preferences:</p>
+        <p class="recipient-tagline recipient-form-part" id="recipient-tagline">Let's go out? 😃</p>
+        <p class="hidden" id="recipient-subtitle"></p>
         <section class="accepted-plan hidden" id="accepted-plan" role="status" aria-live="polite" aria-atomic="true">
             <div class="accepted-plan-grid">
                 <div class="accepted-plan-item">
@@ -133,7 +134,7 @@
         <div class="ideas-grid recipient-form-part" id="recipient-ideas-grid"></div>
         <div class="form-group hidden recipient-form-part" id="other-input-container">
             <label for="other-freeform">What do you prefer instead? ✨</label>
-            <input type="text" id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?">
+            <input type="text" id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?" aria-describedby="accept-error">
         </div>
         <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
         <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
@@ -144,7 +145,7 @@
         </div>
         <p class="form-error hidden" id="accept-error" role="alert"></p>
         <div class="proposal-actions recipient-form-part" id="action-wrapper">
-            <button class="btn" id="yes-btn" disabled>Yes</button>
+            <button class="btn" id="yes-btn" disabled>Accept</button>
             <div class="no-btn-wrapper"><button class="btn" id="no-btn">Decline</button></div>
         </div>
     </main>
@@ -155,9 +156,17 @@
         <p id="status-summary">Checking your invitation…</p>
         <div class="status-details hidden" id="status-details"></div>
         <p class="form-error hidden" id="status-error" role="alert"></p>
+        <div class="status-invite-share hidden" id="status-invite-share">
+            <div class="share-link-heading">
+                <span class="form-label">INVITE LINK</span>
+                <span class="share-link-subheading" id="status-invite-label">Share this</span>
+            </div>
+            <button type="button" class="link-box clickable-link-box" id="status-invite-box" aria-label="Copy invite link">
+                <span class="link-box-value" id="status-invite-url"></span>
+            </button>
+            <button class="btn btn-primary" id="status-copy-invite-btn">Copy Invite Link 📋</button>
+        </div>
         <div class="status-actions">
-            <a class="btn btn-secondary status-invite-link hidden" id="status-invite-link" target="_blank" rel="noopener">View Invite Link ↗</a>
-            <button class="btn btn-primary" id="status-refresh-btn">Refresh Status ↻</button>
             <button class="btn btn-secondary danger-button" id="status-delete-btn">Permanently Delete Invite</button>
         </div>
         <div class="status-metadata hidden" id="status-metadata">
@@ -169,9 +178,12 @@
                 <span>Expires</span>
                 <time id="status-expires"></time>
             </div>
-            <div class="status-metadata-row">
+            <div class="status-metadata-row" id="status-updated-row">
                 <span>Last checked</span>
-                <time id="status-updated"></time>
+                <div class="status-metadata-timing">
+                    <time id="status-updated"></time>
+                    <span class="status-next-check hidden" id="status-next-check"></span>
+                </div>
             </div>
         </div>
     </main>

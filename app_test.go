@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=33" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=33">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=44" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=37">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -667,10 +667,20 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`class="btn btn-tertiary" id="share-back-btn">← Create New Invite`,
 		`id="recipient-message-label">3. Message (Optional)`,
 		`id="recipient-message" maxlength="280"`,
-		`id="status-invite-link" target="_blank" rel="noopener">View Invite Link ↗`,
+		`class="status-invite-share hidden" id="status-invite-share"`,
+		`id="status-invite-label">Share this`,
+		`id="status-invite-box" aria-label="Copy invite link"`,
+		`class="link-box-value" id="status-invite-url"`,
+		`id="status-copy-invite-btn">Copy Invite Link 📋`,
+		`id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?" aria-describedby="accept-error"`,
+		`id="yes-btn" disabled>Accept</button>`,
+		`id="recipient-tagline">Let's go out? 😃</p>`,
 		`id="status-accepted-row"`,
 		`id="status-expires"`,
 		`id="status-updated"`,
+		`id="status-updated-row">
+                <span>Last checked</span>`,
+		`class="status-next-check hidden" id="status-next-check"`,
 	} {
 		if !strings.Contains(index.Body.String(), marker) {
 			t.Fatalf("generated links UI is missing marker %q", marker)
@@ -697,10 +707,18 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientText := string(client)
-	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
-		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
+	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "byID('recipient-subtitle').classList.toggle('hidden', !data.sender_message)") {
+		t.Fatal("client still depends on pronouns or does not treat the sender message as optional")
 	}
-	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	if strings.Contains(index.Body.String(), "status-refresh-btn") || strings.Contains(clientText, "status-refresh-btn") {
+		t.Fatal("private status page still has a manual refresh control")
+	}
+	for _, marker := range []string{"const statusRefreshInterval = 15000", "statusAutoRefreshEnabled = data.status === 'pending'", "if (!statusAutoRefreshEnabled || !currentStatusToken", "nextStatusRefreshAt = Date.now() + statusRefreshInterval", "`Checking again in ${seconds}s`", "statusRefreshTimer = window.setTimeout(refreshStatus, statusRefreshInterval)", "document.addEventListener('visibilitychange'", "else if (statusAutoRefreshEnabled) refreshStatus();", "window.addEventListener('online', () => { if (statusAutoRefreshEnabled) refreshStatus(); })", "window.addEventListener('offline'"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("automatic status refresh is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "status-invite-box').addEventListener('click', () => copyLink('status-invite-url'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
@@ -714,6 +732,17 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
 		}
+	}
+	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "const minimumTravel = Math.min(120, distanceTo(farthestTarget))", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "].filter((target) => !overlapsAccept(target) && !pathCrossesAccept(target))", "if (!overlapsAccept(candidate) && !pathCrossesAccept(candidate) && distanceTo(candidate) >= minimumTravel)", "noButton.style.left = `${target.x + window.scrollX}px`", "noButton.style.top = `${target.y + window.scrollY}px`", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("recipient invite safeguards are missing marker %q", marker)
+		}
+	}
+	if strings.Contains(clientText, "window.addEventListener('scroll', prepareNoButtonPosition") {
+		t.Fatal("decline button still resets while scrolling")
+	}
+	if strings.Contains(clientText, "window.addEventListener('resize', prepareNoButtonPosition") {
+		t.Fatal("decline button still resets during scroll-related viewport resizing")
 	}
 	styles, err := os.ReadFile("styles.css")
 	if err != nil {

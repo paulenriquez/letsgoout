@@ -181,6 +181,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 .preview-actions { display: flex; flex-direction: column; gap: 8px; }
 .preview-actions .btn { width: 100%; margin: 0; }
 .preview-back-button { margin: 0; }
+.recipient-tagline {
+    color: var(--text-main); font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem;
+}
 #recipient-subtitle { white-space: pre-line; }
 #recipient-card.preview-read-only .idea-card,
 #recipient-card.preview-read-only .select-item { cursor: default; }
@@ -342,16 +345,18 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 .status-row:last-child { margin-bottom: 0; }
 .status-row strong { color: var(--primary); }
 .status-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.status-invite-share { margin: 0.25rem 0 1.25rem; }
 .status-actions { display: flex; flex-direction: column; gap: 0.65rem; }
 .status-actions .btn { width: 100%; margin: 0; }
-.status-invite-link { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .status-metadata {
     display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1.25rem; padding-top: 0.85rem;
     border-top: 2px solid var(--accent); color: var(--text-muted); font-size: 0.72rem; text-align: left;
 }
 .status-metadata-row { display: flex; justify-content: space-between; gap: 1rem; }
-.status-metadata-row span { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.status-metadata-row > span { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .status-metadata-row time { text-align: right; }
+.status-metadata-timing { display: flex; flex-direction: column; align-items: flex-end; gap: 0.12rem; text-align: right; }
+.status-next-check { color: var(--primary); font-size: 0.68rem; }
 .danger-button { color: #b4233b; border-color: #e1a2ad; }
 @keyframes float {
     0% { transform: translateY(0); }
