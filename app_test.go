@@ -601,7 +601,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=20" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=21" defer></script>`) ||
 		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=27">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
@@ -614,12 +614,13 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="generated-invite-box" aria-label="Copy invite link"`,
 		`class="link-box-value" id="generated-invite-url"`,
 		`<span class="form-label">PRIVATE STATUS LINK</span>`,
-		`id="share-status-label">View response here`,
+		`id="share-status-label">Save this link to view their response`,
 		`id="generated-status-box" aria-label="Copy private status link"`,
 		`class="link-box-value" id="generated-status-url"`,
 		`class="private-link-warning-icon" aria-hidden="true"`,
-		`<strong>Keep this link private</strong>, and save it somewhere safe.`,
-		`It can't be recovered if lost.`,
+		`<strong>For your eyes only.</strong>`,
+		`Save it somewhere you won’t lose it.`,
+		`It can’t be recovered.`,
 		`id="copy-status-btn">Copy Private Status Link 🔒`,
 		`class="share-tertiary-actions"`,
 		`class="btn btn-tertiary" id="preview-btn"`,
@@ -659,7 +660,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
-	for _, marker := range []string{"Share this to ${recipientName}", "View response from ${recipientName} here", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}

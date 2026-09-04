@@ -7,7 +7,7 @@
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
     <link rel="stylesheet" href="/styles.css?v=27">
-    <script src="/app.js?v=20" defer></script>
+    <script src="/app.js?v=21" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -63,21 +63,23 @@
         <div class="private-link-heading">
             <div class="share-link-heading">
                 <span class="form-label">PRIVATE STATUS LINK</span>
-                <span class="share-link-subheading" id="share-status-label">View response here</span>
+                <span class="share-link-subheading" id="share-status-label">Save this link to view their response</span>
             </div>
         </div>
         <button type="button" class="link-box clickable-link-box status-link-box" id="generated-status-box" aria-label="Copy private status link">
             <span class="link-box-value" id="generated-status-url"></span>
             <span class="private-link-warning">
                 <span class="private-link-warning-lead">
-                    <!-- Lock icon from Lucide, https://lucide.dev (ISC License). Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that this notice appears in all copies. -->
+                    <!-- Alert Triangle icon from Lucide, https://lucide.dev (ISC License). Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that this notice appears in all copies. -->
                     <svg class="private-link-warning-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path>
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
                     </svg>
-                    <span><strong>Keep this link private</strong>, and save it somewhere safe.</span>
+                    <strong>For your eyes only.</strong>
                 </span>
-                <span>It can't be recovered if lost.</span>
+                <span>Save it somewhere you won’t lose it.</span>
+                <span>It can’t be recovered.</span>
             </span>
         </button>
         <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Private Status Link 🔒</button>
