@@ -526,7 +526,7 @@ function renderRecipientView(data, source = '') {
     recipientCard.classList.remove('accepted-state');
     recipientCard.classList.toggle('preview-read-only', previewMode);
     byID('accepted-plan').classList.add('hidden');
-    byID('accepted-ideas-icon').textContent = '✨';
+    byID('accepted-ideas-icon').textContent = '🚀';
     byID('accepted-ideas').textContent = '';
     byID('accepted-slot').textContent = '';
     byID('accepted-message').classList.add('hidden');
@@ -623,8 +623,18 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     byID('recipient-title').textContent = `${currentInvite.recipient_name}, it’s a date!`;
     byID('recipient-subtitle').textContent = `Your response has been shared with ${currentInvite.asker_name}`;
     byID('recipient-subtitle').classList.remove('hidden');
-    byID('accepted-ideas-icon').textContent = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])].join(' ');
-    byID('accepted-ideas').textContent = [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ');
+    const acceptedLabels = [...selectedLabels, ...(customIdea ? [customIdea] : [])];
+    const acceptedEmojis = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])];
+    byID('accepted-ideas-icon').textContent = acceptedEmojis.length > 1 ? '🚀' : (acceptedEmojis[0] || '🚀');
+    const showItemEmojis = acceptedEmojis.length > 1;
+    const acceptedIdeas = byID('accepted-ideas');
+    acceptedIdeas.replaceChildren();
+    acceptedLabels.forEach((label, index) => {
+        const item = makeElement('li', showItemEmojis ? 'accepted-idea' : 'accepted-idea accepted-idea-single');
+        if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji', acceptedEmojis[index]));
+        item.appendChild(makeElement('span', 'accepted-idea-label', label));
+        acceptedIdeas.appendChild(item);
+    });
     byID('accepted-slot').textContent = slotLabel;
     byID('accepted-message-label').textContent = `Your message to ${currentInvite.asker_name}`;
     byID('accepted-message-text').textContent = recipientMessage;
@@ -735,8 +745,12 @@ function renderStatus(data) {
     const acceptedRow = byID('status-accepted-row');
     const updatedRow = byID('status-updated-row');
     statusAutoRefreshEnabled = data.status === 'pending';
+    byID('status-card').classList.remove('status-error-state');
     details.replaceChildren();
     byID('status-title').textContent = `${data.recipient_name}'s Invite`;
+    summary.classList.remove('hidden');
+    byID('status-expires-row').classList.remove('hidden');
+    byID('status-actions').classList.remove('hidden');
     if (data.invite_url) {
         byID('status-invite-label').textContent = `Share this to ${data.recipient_name}`;
         byID('status-invite-url').textContent = data.invite_url;
@@ -782,9 +796,30 @@ function renderStatus(data) {
     showError('status-error', '');
 }
 
+function renderStatusError(message) {
+    const checkedAt = new Date();
+    byID('status-card').classList.add('status-error-state');
+    byID('status-summary').classList.add('hidden');
+    byID('status-details').classList.add('hidden');
+    byID('status-invite-share').classList.add('hidden');
+    byID('status-accepted-row').classList.add('hidden');
+    byID('status-expires-row').classList.add('hidden');
+    byID('status-actions').classList.add('hidden');
+    byID('status-updated').textContent = formatStatusDate(checkedAt);
+    byID('status-updated').dateTime = checkedAt.toISOString();
+    byID('status-updated-row').classList.remove('hidden');
+    byID('status-metadata').classList.remove('hidden');
+    showError('status-error', message);
+}
+
 async function refreshStatus() {
-    if (!currentStatusToken || document.hidden || !navigator.onLine) {
-        clearStatusRefreshSchedule(currentStatusToken && !navigator.onLine ? 'Checking resumes when online' : '');
+    if (!currentStatusToken || document.hidden) {
+        clearStatusRefreshSchedule();
+        return;
+    }
+    if (!navigator.onLine) {
+        renderStatusError('You appear to be offline.');
+        clearStatusRefreshSchedule('Checking resumes when online');
         return;
     }
     clearStatusRefreshSchedule();
@@ -793,7 +828,8 @@ async function refreshStatus() {
         if (!isStatusResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
         renderStatus(data);
     } catch (error) {
-        showError('status-error', error.status === 404 ? 'This invitation is unavailable or has expired.' : (error.message || 'Could not refresh the status.'));
+        statusAutoRefreshEnabled = error.status !== 404;
+        renderStatusError(error.status === 404 ? 'This invitation is unavailable or has expired.' : (error.message || 'Could not refresh the status.'));
     } finally {
         scheduleStatusRefresh();
     }
@@ -992,7 +1028,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('click', () => closeEmojiPalettes());
     window.addEventListener('online', () => { if (statusAutoRefreshEnabled) refreshStatus(); });
-    window.addEventListener('offline', () => clearStatusRefreshSchedule('Checking resumes when online'));
+    window.addEventListener('offline', () => {
+        if (currentStatusToken) renderStatusError('You appear to be offline.');
+        clearStatusRefreshSchedule('Checking resumes when online');
+    });
     window.addEventListener('hashchange', routeFromHash);
     routeFromHash();
 });

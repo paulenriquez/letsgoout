@@ -201,9 +201,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 #recipient-card.accepted-state {
     isolation: isolate; padding: 2.5rem 1.25rem; border-color: #ffbdcb;
     background:
-        radial-gradient(circle at 50% 8%, rgba(255, 226, 151, 0.42), transparent 31%),
-        radial-gradient(circle at 8% 88%, rgba(255, 195, 210, 0.42), transparent 28%),
-        linear-gradient(145deg, #ffffff 0%, #fff8fa 58%, #fff0f4 100%);
+        radial-gradient(circle 8.5rem at 50% 5.5rem, rgba(255, 226, 151, 0.46), rgba(255, 240, 201, 0.18) 56%, transparent 76%),
+        #fff;
     box-shadow: 0 18px 45px rgba(207, 59, 91, 0.18), 0 0 0 8px rgba(255, 255, 255, 0.6);
 }
 #recipient-card.accepted-state #recipient-emoji {
@@ -211,7 +210,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     margin: 0 auto 0.75rem; border: 2px solid rgba(255, 189, 203, 0.8); border-radius: 50%;
     background: radial-gradient(circle, #ffffff 0%, #fff0c9 55%, #ffe0e8 100%);
     box-shadow: 0 10px 28px rgba(207, 59, 91, 0.18);
-    animation: celebration-pop 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation:
+        celebration-pop 0.7s cubic-bezier(0.16, 1, 0.3, 1) both,
+        celebration-bounce 2.6s ease-in-out 0.8s infinite;
 }
 .accepted-popper,
 .accepted-sparkles {
@@ -239,10 +240,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     width: 2.5rem; height: 2.5rem; border-radius: 13px; background: #fff0f3;
     font-size: 1.3rem;
 }
-.accepted-ideas-icon {
-    width: auto; min-width: 2.5rem; max-width: 6.5rem; padding: 0 0.45rem;
-    overflow-wrap: anywhere;
-}
 .accepted-plan-copy { min-width: 0; }
 .accepted-plan-label {
     display: block; margin-bottom: 0.2rem; color: #b44a63; font-size: 0.7rem;
@@ -252,6 +249,18 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     display: block; color: var(--text-main); font-size: 0.95rem; line-height: 1.35;
     overflow-wrap: anywhere;
 }
+.accepted-ideas-list {
+    display: flex; flex-direction: column; gap: 0.4rem; margin: 0; padding: 0;
+    color: var(--text-main); list-style: none;
+}
+.accepted-idea {
+    display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 0.45rem;
+    align-items: center; min-width: 0; font-size: 0.95rem; font-weight: 600;
+    line-height: 1.35;
+}
+.accepted-idea-single { display: block; }
+.accepted-idea-emoji { text-align: center; }
+.accepted-idea-label { overflow-wrap: anywhere; }
 .accepted-message {
     display: flex; align-items: flex-start; gap: 0.8rem; margin-top: 0.75rem; padding: 1rem;
     border: 2px dashed rgba(255, 167, 187, 0.78); border-radius: 18px;
@@ -264,7 +273,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .accepted-note {
     display: inline-flex; align-items: center; justify-content: center; margin: 1.25rem 0 0;
-    color: #9f3f57; font-size: 0.95rem; font-weight: 600;
+    color: #9f3f57; font-size: 0.95rem; font-weight: 400;
 }
 .proposal-actions {
     display: flex; gap: 12px; justify-content: center; align-items: center;
@@ -358,17 +367,23 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 .status-row strong { color: var(--primary); }
 .status-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 .status-invite-share { margin: 0.25rem 0 1.25rem; }
-.status-actions { display: flex; flex-direction: column; gap: 0.65rem; }
+.status-actions { display: flex; flex-direction: column; gap: 0.65rem; margin-top: 0.65rem; }
 .status-actions .btn { width: 100%; margin: 0; }
+#status-card { padding-bottom: 1.1rem; }
 .status-metadata {
-    display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1.25rem; padding-top: 0.85rem;
-    border-top: 2px solid var(--accent); color: var(--text-muted); font-size: 0.72rem; text-align: left;
+    display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1.25rem; padding: 0.85rem 0;
+    border-top: 2px solid var(--accent); border-bottom: 1px solid rgba(92, 67, 71, 0.16);
+    color: var(--text-muted); font-size: 0.72rem; text-align: left;
 }
 .status-metadata-row { display: flex; justify-content: space-between; gap: 1rem; }
 .status-metadata-row > span { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .status-metadata-row time { text-align: right; }
 .status-metadata-timing { display: flex; flex-direction: column; align-items: flex-end; gap: 0.12rem; text-align: right; }
 .status-next-check { color: var(--primary); font-size: 0.68rem; }
+#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }
+#status-card.status-error-state .status-metadata {
+    margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;
+}
 .danger-button { color: #b4233b; border-color: #e1a2ad; }
 @keyframes float {
     0% { transform: translateY(0); }
@@ -383,6 +398,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     0% { opacity: 0; transform: scale(0.45) rotate(-8deg); }
     65% { opacity: 1; transform: scale(1.08) rotate(2deg); }
     100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes celebration-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
 }
 @keyframes celebration-title-in {
     from { opacity: 0; transform: translateY(12px) scale(0.92); }

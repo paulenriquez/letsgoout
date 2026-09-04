@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=45" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=40">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=51" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=48">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -642,7 +642,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="celebration-confetti" aria-hidden="true"`,
 		`id="accepted-plan" role="status" aria-live="polite" aria-atomic="true"`,
 		`id="accepted-ideas-icon" aria-hidden="true"`,
-		`id="accepted-ideas"`,
+		`class="accepted-ideas-list" id="accepted-ideas"`,
 		`id="accepted-slot"`,
 		`id="accepted-message"`,
 		`id="accepted-message-label"`,
@@ -676,15 +676,23 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="yes-btn" disabled>Accept</button>`,
 		`id="recipient-tagline">Let's go out? 😃</p>`,
 		`id="status-accepted-row"`,
+		`id="status-expires-row"`,
 		`id="status-expires"`,
 		`id="status-updated"`,
 		`id="status-updated-row">
                 <span>Last checked</span>`,
 		`class="status-next-check hidden" id="status-next-check"`,
+		`class="btn btn-tertiary danger-button" id="status-delete-btn">Permanently Delete Invite ❌`,
+		`class="status-actions" id="status-actions"`,
 	} {
 		if !strings.Contains(index.Body.String(), marker) {
 			t.Fatalf("generated links UI is missing marker %q", marker)
 		}
+	}
+	metadataIndex := strings.Index(index.Body.String(), `id="status-metadata"`)
+	deleteIndex := strings.Index(index.Body.String(), `id="status-delete-btn"`)
+	if metadataIndex < 0 || deleteIndex < metadataIndex {
+		t.Fatal("private status delete action is not below the metadata")
 	}
 	faviconICO := request(t, handler, http.MethodGet, "/favicon.ico", nil)
 	if faviconICO.Code != http.StatusOK || faviconICO.Header().Get("Content-Type") != "image/vnd.microsoft.icon" {
@@ -723,6 +731,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("pending status emphasis is missing marker %q", marker)
 		}
 	}
+	for _, marker := range []string{"function renderStatusError(message)", "byID('status-card').classList.add('status-error-state')", "byID('status-card').classList.remove('status-error-state')", "byID('status-summary').classList.add('hidden')", "byID('status-invite-share').classList.add('hidden')", "byID('status-expires-row').classList.add('hidden')", "byID('status-actions').classList.add('hidden')", "byID('status-updated-row').classList.remove('hidden')", "renderStatusError(error.status === 404", "renderStatusError('You appear to be offline.')", "summary.classList.remove('hidden')", "byID('status-expires-row').classList.remove('hidden')", "byID('status-actions').classList.remove('hidden')"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("status error state is missing marker %q", marker)
+		}
+	}
 	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "status-invite-box').addEventListener('click', () => copyLink('status-invite-url'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
@@ -736,6 +749,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	for _, marker := range []string{"ideaEmoji(id, currentInvite.custom_ideas)", "...(customIdea ? ['🤔'] : [])", "...(customIdea ? [customIdea] : [])", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)", "renderAcceptedResponse(data)", "if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"byID('accepted-ideas-icon').textContent = acceptedEmojis.length > 1 ? '🚀' : (acceptedEmojis[0] || '🚀')", "const acceptedLabels = [...selectedLabels", "const acceptedEmojis = [...selectedEmojis", "const showItemEmojis = acceptedEmojis.length > 1", "if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji'", "makeElement('span', 'accepted-idea-label'"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("accepted vertical idea list is missing marker %q", marker)
 		}
 	}
 	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "const minimumTravel = Math.min(120, distanceTo(farthestTarget))", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "].filter((target) => !overlapsAccept(target) && !pathCrossesAccept(target))", "if (!overlapsAccept(candidate) && !pathCrossesAccept(candidate) && distanceTo(candidate) >= minimumTravel)", "noButton.style.left = `${target.x + window.scrollX}px`", "noButton.style.top = `${target.y + window.scrollY}px`", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
@@ -754,7 +772,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".status-summary-pending::before", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}

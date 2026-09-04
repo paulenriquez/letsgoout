@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=40">
-    <script src="/app.js?v=45" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=48">
+    <script src="/app.js?v=51" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -107,10 +107,10 @@
         <section class="accepted-plan hidden" id="accepted-plan" role="status" aria-live="polite" aria-atomic="true">
             <div class="accepted-plan-grid">
                 <div class="accepted-plan-item">
-                    <span class="accepted-plan-icon accepted-ideas-icon" id="accepted-ideas-icon" aria-hidden="true">✨</span>
+                    <span class="accepted-plan-icon accepted-ideas-icon" id="accepted-ideas-icon" aria-hidden="true">🚀</span>
                     <div class="accepted-plan-copy">
                         <span class="accepted-plan-label">Going for</span>
-                        <strong id="accepted-ideas"></strong>
+                        <ul class="accepted-ideas-list" id="accepted-ideas"></ul>
                     </div>
                 </div>
                 <div class="accepted-plan-item">
@@ -166,15 +166,12 @@
             </button>
             <button class="btn btn-primary" id="status-copy-invite-btn">Copy Invite Link 📋</button>
         </div>
-        <div class="status-actions">
-            <button class="btn btn-secondary danger-button" id="status-delete-btn">Permanently Delete Invite</button>
-        </div>
         <div class="status-metadata hidden" id="status-metadata">
             <div class="status-metadata-row hidden" id="status-accepted-row">
                 <span>Accepted</span>
                 <time id="status-accepted"></time>
             </div>
-            <div class="status-metadata-row">
+            <div class="status-metadata-row" id="status-expires-row">
                 <span>Expires</span>
                 <time id="status-expires"></time>
             </div>
@@ -185,6 +182,9 @@
                     <span class="status-next-check hidden" id="status-next-check"></span>
                 </div>
             </div>
+        </div>
+        <div class="status-actions" id="status-actions">
+            <button class="btn btn-tertiary danger-button" id="status-delete-btn">Permanently Delete Invite ❌</button>
         </div>
     </main>
 
