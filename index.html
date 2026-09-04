@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=11">
-    <script src="/app.js?v=11" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=13">
+    <script src="/app.js?v=13" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -52,14 +52,16 @@
         <div class="header-illustration">🔗</div>
         <h2>Links Generated!</h2>
         <p>Send the invite link to them, and keep the status link private.</p>
-        <span class="form-label">Invite link — send this</span>
+        <span class="form-label" id="share-invite-label">INVITE LINK - SEND THIS</span>
         <div class="link-box" id="generated-invite-url"></div>
         <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
-        <span class="form-label private-link-label">Private status link — keep this private</span>
+        <span class="form-label private-link-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)</span>
         <div class="link-box" id="generated-status-url"></div>
         <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Status Link 🔒</button>
-        <button class="btn btn-secondary" id="preview-btn">Preview Invite 👀</button>
-        <button class="btn btn-secondary" id="share-back-btn">← Back to Create Invite</button>
+        <div class="share-tertiary-actions">
+            <button class="btn btn-tertiary" id="preview-btn">Preview Invite 👀</button>
+            <button class="btn btn-tertiary" id="share-back-btn">Create new Invite</button>
+        </div>
     </main>
 
     <main class="card hidden" id="recipient-card">
@@ -83,6 +85,11 @@
         </div>
         <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
         <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
+        <div class="form-group recipient-form-part recipient-message-group">
+            <label class="selection-section-title" for="recipient-message" id="recipient-message-label">3. Message (Optional)</label>
+            <textarea id="recipient-message" maxlength="280" rows="3" placeholder="Write something for the sender…"></textarea>
+            <div class="character-count"><span id="recipient-message-count">0</span>/280</div>
+        </div>
         <p class="form-error hidden" id="accept-error" role="alert"></p>
         <div class="proposal-actions recipient-form-part" id="action-wrapper">
             <button class="btn" id="yes-btn" disabled>Yes</button>

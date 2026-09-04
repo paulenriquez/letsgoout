@@ -86,8 +86,8 @@ func createTokens(t *testing.T, handler http.Handler, now time.Time, input creat
 		ExpiresAt string `json:"expires_at"`
 	}
 	decodeResponse(t, response, &result)
-	if !strings.HasPrefix(result.InviteURL, testOrigin+"/?v="+appShellVersion+"#/invite/") || !strings.HasPrefix(result.StatusURL, testOrigin+"/?v="+appShellVersion+"#/status/") {
-		t.Fatalf("generated URLs do not bypass legacy app-shell caches: %+v", result)
+	if !strings.HasPrefix(result.InviteURL, testOrigin+"/#/invite/") || !strings.HasPrefix(result.StatusURL, testOrigin+"/#/status/") {
+		t.Fatalf("generated URLs are not clean hash routes: %+v", result)
 	}
 	inviteParts := strings.Split(result.InviteURL, "/")
 	statusParts := strings.Split(result.StatusURL, "/")
@@ -173,12 +173,13 @@ func TestValidation(t *testing.T) {
 	rec := inviteRecord{OfferedIdeas: []string{"pizza"}, CustomIdeas: []customIdea{{ID: "custom:0", Emoji: "🎬", Title: "Movie"}}, ProposedSlots: []string{"slot"}}
 	zero, one := 0, 1
 	for name, input := range map[string]acceptRequest{
-		"empty":               {SelectedSlotIndex: &zero},
-		"unknown idea":        {SelectedIdeas: []string{"ramen"}, SelectedSlotIndex: &zero},
-		"unknown custom idea": {SelectedIdeas: []string{"custom:1"}, SelectedSlotIndex: &zero},
-		"duplicate":           {SelectedIdeas: []string{"pizza", "pizza"}, SelectedSlotIndex: &zero},
-		"bad slot":            {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &one},
-		"long custom":         {CustomIdea: strings.Repeat("界", 121), SelectedSlotIndex: &zero},
+		"empty":                  {SelectedSlotIndex: &zero},
+		"unknown idea":           {SelectedIdeas: []string{"ramen"}, SelectedSlotIndex: &zero},
+		"unknown custom idea":    {SelectedIdeas: []string{"custom:1"}, SelectedSlotIndex: &zero},
+		"duplicate":              {SelectedIdeas: []string{"pizza", "pizza"}, SelectedSlotIndex: &zero},
+		"bad slot":               {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &one},
+		"long custom":            {CustomIdea: strings.Repeat("界", 121), SelectedSlotIndex: &zero},
+		"long recipient message": {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &zero, RecipientMessage: strings.Repeat("界", 281)},
 	} {
 		t.Run("accept "+name, func(t *testing.T) {
 			if validateAcceptance(input, rec) == nil {
@@ -190,6 +191,9 @@ func TestValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := validateAcceptance(acceptRequest{SelectedIdeas: []string{"custom:0"}, SelectedSlotIndex: &zero}, rec); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAcceptance(acceptRequest{SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &zero, RecipientMessage: " See you there! "}, rec); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -248,7 +252,7 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 		t.Fatal(err)
 	}
 	if record.AskerName != "Alex" || record.RecipientName != "Taylor" || len(record.OfferedIdeas) != 1 || record.OfferedIdeas[0] != "pizza" ||
-		len(record.CustomIdeas) != 0 || record.SenderMessage != "" ||
+		len(record.CustomIdeas) != 0 || record.SenderMessage != "" || record.RecipientMessage != "" ||
 		len(record.ProposedSlots) != 1 || record.ProposedSlots[0] != "2030-01-02T14:00:00Z" || record.AcceptedAt == nil || !record.AcceptedAt.Equal(acceptedAt) ||
 		!record.ExpiresAt.Equal(expiresAt) || len(record.SelectedIdeas) != 1 || record.SelectedIdeas[0] != "pizza" || record.CustomIdea != "Arcade" ||
 		record.SelectedSlotIndex == nil || *record.SelectedSlotIndex != 0 {
@@ -329,7 +333,8 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		t.Fatalf("invalid accept = %d", invalidAccept.Code)
 	}
 	index := 1
-	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee", "custom:0"}, CustomIdea: "Arcade", SelectedSlotIndex: &index})
+	recipientMessage := " Sounds perfect!\nSee you then. "
+	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee", "custom:0"}, CustomIdea: "Arcade", SelectedSlotIndex: &index, RecipientMessage: recipientMessage})
 	if accepted.Code != http.StatusOK {
 		t.Fatalf("accept status %d: %s", accepted.Code, accepted.Body.String())
 	}
@@ -355,12 +360,13 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		SelectedIdeas     []string     `json:"selected_ideas"`
 		CustomIdeas       []customIdea `json:"custom_ideas"`
 		CustomIdea        string       `json:"custom_idea"`
+		RecipientMessage  string       `json:"recipient_message"`
 		SelectedSlotIndex int          `json:"selected_slot_index"`
 		ExpiresAt         string       `json:"expires_at"`
 	}
 	decodeResponse(t, status, &statusResult)
 	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 2 ||
-		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" {
+		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" || statusResult.RecipientMessage != strings.TrimSpace(recipientMessage) {
 		t.Fatalf("bad status: %+v", statusResult)
 	}
 
@@ -556,13 +562,20 @@ func TestXSSFieldsAreJSONEscapedAndRoundTrip(t *testing.T) {
 		t.Fatal("text did not round-trip")
 	}
 	index := 0
-	accept := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, CustomIdea: payload, SelectedSlotIndex: &index})
+	accept := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, CustomIdea: payload, SelectedSlotIndex: &index, RecipientMessage: payload})
 	if accept.Code != http.StatusOK {
 		t.Fatalf("accept = %d: %s", accept.Code, accept.Body.String())
 	}
 	status := request(t, handler, http.MethodPost, "/api/status/view", tokenRequest{Token: statusToken})
 	if bytes.Contains(status.Body.Bytes(), []byte("<img")) {
-		t.Fatalf("custom text not escaped: %s", status.Body.String())
+		t.Fatalf("response text not escaped: %s", status.Body.String())
+	}
+	var statusData struct {
+		RecipientMessage string `json:"recipient_message"`
+	}
+	decodeResponse(t, status, &statusData)
+	if statusData.RecipientMessage != payload {
+		t.Fatal("recipient message did not round-trip")
 	}
 }
 
@@ -575,11 +588,24 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=11" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=11">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=13" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=13">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
+	}
+	for _, marker := range []string{
+		`id="share-invite-label"`,
+		`PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)`,
+		`class="share-tertiary-actions"`,
+		`class="btn btn-tertiary" id="preview-btn"`,
+		`class="btn btn-tertiary" id="share-back-btn">Create new Invite`,
+		`id="recipient-message-label">3. Message (Optional)`,
+		`id="recipient-message" maxlength="280"`,
+	} {
+		if !strings.Contains(index.Body.String(), marker) {
+			t.Fatalf("generated links UI is missing marker %q", marker)
+		}
 	}
 	faviconICO := request(t, handler, http.MethodGet, "/favicon.ico", nil)
 	if faviconICO.Code != http.StatusOK || faviconICO.Header().Get("Content-Type") != "image/vnd.microsoft.icon" {
@@ -604,6 +630,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	clientText := string(client)
 	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
+	}
+	for _, marker := range []string{"INVITE LINK - SEND THIS TO", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("generated links behavior is missing marker %q", marker)
+		}
 	}
 	for _, marker := range []string{"creator-preview-btn", "preview-generate-btn", "custom_ideas", "sender_message"} {
 		if !strings.Contains(clientText, marker) && !strings.Contains(index.Body.String(), marker) {

@@ -24,12 +24,12 @@ import (
 )
 
 const (
-	maxRequestBody     = 8 << 10
-	initialLifetime    = 7 * 24 * time.Hour
-	extendedLifetime   = 7 * 24 * time.Hour
-	maxCustomIdeaTitle = 60
-	maxSenderMessage   = 280
-	appShellVersion    = "11"
+	maxRequestBody      = 8 << 10
+	initialLifetime     = 7 * 24 * time.Hour
+	extendedLifetime    = 7 * 24 * time.Hour
+	maxCustomIdeaTitle  = 60
+	maxSenderMessage    = 280
+	maxRecipientMessage = 280
 )
 
 var (
@@ -142,6 +142,7 @@ type acceptRequest struct {
 	SelectedIdeas     []string `json:"selected_ideas"`
 	CustomIdea        string   `json:"custom_idea"`
 	SelectedSlotIndex *int     `json:"selected_slot_index"`
+	RecipientMessage  string   `json:"recipient_message"`
 }
 
 type inviteRecord struct {
@@ -158,6 +159,7 @@ type inviteRecord struct {
 	SelectedIdeas     []string
 	CustomIdea        string
 	SelectedSlotIndex *int
+	RecipientMessage  string
 }
 
 func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -231,8 +233,8 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"invite_url": a.cfg.PublicBaseURL + "/?v=" + appShellVersion + "#/invite/" + recipientToken,
-		"status_url": a.cfg.PublicBaseURL + "/?v=" + appShellVersion + "#/status/" + statusToken,
+		"invite_url": a.cfg.PublicBaseURL + "/#/invite/" + recipientToken,
+		"status_url": a.cfg.PublicBaseURL + "/#/status/" + statusToken,
 		"expires_at": expires.Format(time.RFC3339),
 	})
 }
@@ -289,7 +291,7 @@ func (a *app) handleAccept(w http.ResponseWriter, r *http.Request) {
 	}
 	selectedJSON, _ := json.Marshal(req.SelectedIdeas)
 	now := a.now().UTC()
-	result, err := a.db.ExecContext(r.Context(), `UPDATE invites SET accepted_at = ?, expires_at = expires_at + ?, selected_ideas = ?, custom_idea = ?, selected_slot_index = ? WHERE id = ? AND accepted_at IS NULL AND expires_at > ?`, now.Unix(), int64(extendedLifetime/time.Second), selectedJSON, strings.TrimSpace(req.CustomIdea), *req.SelectedSlotIndex, record.ID, now.Unix())
+	result, err := a.db.ExecContext(r.Context(), `UPDATE invites SET accepted_at = ?, expires_at = expires_at + ?, selected_ideas = ?, custom_idea = ?, selected_slot_index = ?, recipient_message = ? WHERE id = ? AND accepted_at IS NULL AND expires_at > ?`, now.Unix(), int64(extendedLifetime/time.Second), selectedJSON, strings.TrimSpace(req.CustomIdea), *req.SelectedSlotIndex, strings.TrimSpace(req.RecipientMessage), record.ID, now.Unix())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -339,6 +341,7 @@ func (a *app) handleStatusView(w http.ResponseWriter, r *http.Request) {
 		response["selected_ideas"] = record.SelectedIdeas
 		response["custom_idea"] = record.CustomIdea
 		response["selected_slot_index"] = *record.SelectedSlotIndex
+		response["recipient_message"] = record.RecipientMessage
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -391,14 +394,14 @@ func (a *app) findInvite(ctx context.Context, column, token string) (inviteRecor
 	if !ok {
 		return inviteRecord{}, sql.ErrNoRows
 	}
-	query := `SELECT id, asker_name, recipient_name, offered_ideas, custom_ideas, sender_message, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
+	query := `SELECT id, asker_name, recipient_name, offered_ideas, custom_ideas, sender_message, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index, recipient_message FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
 	var rec inviteRecord
 	var ideasJSON, customIdeasJSON, slotsJSON string
 	var created, expires int64
 	var accepted sql.NullInt64
 	var selectedJSON, custom sql.NullString
 	var slotIndex sql.NullInt64
-	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &ideasJSON, &customIdeasJSON, &rec.SenderMessage, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex)
+	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &ideasJSON, &customIdeasJSON, &rec.SenderMessage, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex, &rec.RecipientMessage)
 	if err != nil {
 		return inviteRecord{}, err
 	}
@@ -476,8 +479,12 @@ func validateCreate(req createRequest, now time.Time) error {
 
 func validateAcceptance(req acceptRequest, rec inviteRecord) error {
 	custom := strings.TrimSpace(req.CustomIdea)
-	if utf8.RuneCountInString(custom) > 120 {
+	if !utf8.ValidString(custom) || utf8.RuneCountInString(custom) > 120 {
 		return errors.New("custom idea must not exceed 120 characters")
+	}
+	message := strings.TrimSpace(req.RecipientMessage)
+	if !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxRecipientMessage {
+		return errors.New("recipient message must not exceed 280 characters")
 	}
 	if len(req.SelectedIdeas) == 0 && custom == "" {
 		return errors.New("choose at least one offered or custom vibe")

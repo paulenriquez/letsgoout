@@ -136,6 +136,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     text-align: left; text-transform: uppercase;
 }
 .selection-list { display: flex; flex-direction: column; gap: 8px; text-align: left; margin-bottom: 0.5rem; }
+.recipient-message-group { margin-top: 0.25rem; }
+.recipient-message-group .selection-section-title { margin-bottom: 0.5rem; }
 .select-item {
     display: flex; align-items: center; gap: 12px; padding: 10px 12px;
     border: 2px solid var(--accent); border-radius: 16px; cursor: pointer;
@@ -158,6 +160,18 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     background-color: var(--secondary-button); color: var(--secondary-button-text);
     border: 2px solid var(--secondary-button-border); margin-top: 10px;
 }
+.btn-tertiary {
+    width: 100%; min-height: 44px; padding: 0.65rem 0.85rem; margin: 0;
+    background: transparent; color: var(--secondary-button-text); border: 0;
+    border-radius: 12px; box-shadow: none;
+}
+.btn-tertiary:hover:not(:disabled), .btn-tertiary:focus-visible {
+    color: var(--primary); text-decoration: underline; text-underline-offset: 0.2em;
+}
+.btn-tertiary:focus-visible {
+    outline: 3px solid rgba(164, 53, 79, 0.35); outline-offset: 1px;
+}
+.btn-tertiary:active { transform: translateY(1px); }
 .start-button { max-width: 260px; }
 .preview-toolbar {
     border-bottom: 2px solid var(--accent); margin-bottom: 1rem; padding-bottom: 1rem;
@@ -205,6 +219,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .private-link-label { margin-top: 1rem; }
 .copy-status-button { margin-top: 0; }
+.share-tertiary-actions {
+    display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;
+    padding-top: 1rem; border-top: 2px solid var(--accent);
+}
 .hidden { display: none !important; }
 .header-illustration { font-size: 3rem; margin-bottom: 0.2rem; animation: float 3s ease-in-out infinite; }
 .form-error { color: #b4233b; background: #fff0f3; border-radius: 12px; padding: 0.65rem; }
@@ -215,6 +233,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 .status-row { margin-bottom: 0.5rem; color: var(--text-main); }
 .status-row:last-child { margin-bottom: 0; }
 .status-row strong { color: var(--primary); }
+.status-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 .status-updated { font-size: 0.75rem; }
 .danger-button { color: #b4233b; border-color: #e1a2ad; }
 @keyframes float {

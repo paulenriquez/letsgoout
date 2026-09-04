@@ -114,8 +114,8 @@ function isInviteResponse(data) {
 
 function isCreateResponse(data) {
     return data && typeof data.invite_url === 'string' && typeof data.status_url === 'string' &&
-        typeof data.expires_at === 'string' && data.invite_url.startsWith(`${location.origin}/?v=11#/invite/`) &&
-        data.status_url.startsWith(`${location.origin}/?v=11#/status/`);
+        typeof data.expires_at === 'string' && data.invite_url.startsWith(`${location.origin}/#/invite/`) &&
+        data.status_url.startsWith(`${location.origin}/#/status/`);
 }
 
 function isStatusResponse(data) {
@@ -127,6 +127,7 @@ function isStatusResponse(data) {
     const customIDs = new Set(data.custom_ideas.map((item) => item.id));
     return typeof data.accepted_at === 'string' && Array.isArray(data.selected_ideas) &&
         data.selected_ideas.every((id) => ideaByID.has(id) || customIDs.has(id)) && typeof data.custom_idea === 'string' &&
+        typeof data.recipient_message === 'string' && [...data.recipient_message].length <= 280 &&
         Number.isInteger(data.selected_slot_index) && data.selected_slot_index >= 0 &&
         data.selected_slot_index < data.proposed_slots.length;
 }
@@ -368,6 +369,7 @@ async function createInvite() {
         const result = await postJSON('/api/invites', activeCreateRequest);
         if (!isCreateResponse(result)) throw new APIError(0, 'The server returned an invalid response.');
         activeInviteData = { ...activeInviteData, expires_at: result.expires_at };
+        byID('share-invite-label').textContent = `INVITE LINK - SEND THIS TO ${activeCreateRequest.recipient_name}`;
         byID('generated-invite-url').textContent = result.invite_url;
         byID('generated-status-url').textContent = result.status_url;
         showScreen('share-card');
@@ -377,6 +379,47 @@ async function createInvite() {
         button.disabled = false;
         button.textContent = 'Generate Invite Links 🔗';
     }
+}
+
+function startNewInvite() {
+    byID('asker-name').value = '';
+    byID('recipient-name').value = '';
+    byID('sender-message').value = '';
+    byID('sender-message-count').textContent = '0';
+    byID('recipient-message').value = '';
+    byID('recipient-message').disabled = false;
+    byID('recipient-message-count').textContent = '0';
+    byID('other-freeform').value = '';
+
+    selectedIdeas.clear();
+    byID('ideas-wrapper').querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.checked = false;
+    });
+    byID('custom-ideas-wrapper').replaceChildren();
+    byID('slots-wrapper').replaceChildren();
+    byID('add-slot-trigger').disabled = false;
+    createCustomPickerRow();
+
+    activeInviteData = null;
+    activeCreateRequest = null;
+    currentInvite = null;
+    currentInviteToken = '';
+    currentStatusToken = '';
+    previewMode = false;
+    previewSource = '';
+    recipientSelectedIdeas.clear();
+    prepareNoButtonPosition();
+
+    byID('share-invite-label').textContent = 'INVITE LINK - SEND THIS';
+    byID('generated-invite-url').textContent = '';
+    byID('generated-status-url').textContent = '';
+    showError('create-error', '');
+    showError('preview-error', '');
+    showError('accept-error', '');
+
+    history.replaceState(null, '', location.pathname);
+    showScreen('asker-card');
+    byID('asker-name').focus();
 }
 
 async function copyLink(sourceID, buttonID, defaultText) {
@@ -412,6 +455,11 @@ function renderRecipientView(data, source = '') {
     byID('recipient-emoji').textContent = '✨';
     byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
     byID('recipient-subtitle').textContent = data.sender_message || `${data.asker_name} wants to take you out! Pick your ideal date:`;
+    byID('recipient-message-label').textContent = `3. Message for ${data.asker_name} (Optional)`;
+    byID('recipient-message').placeholder = `Write something for ${data.asker_name}…`;
+    byID('recipient-message').value = '';
+    byID('recipient-message').disabled = previewMode;
+    byID('recipient-message-count').textContent = '0';
     byID('other-freeform').value = '';
     showError('accept-error', '');
     showError('preview-error', '');
@@ -503,7 +551,8 @@ async function acceptInvite() {
             token: currentInviteToken,
             selected_ideas: selectedIDs,
             custom_idea: customIdea,
-            selected_slot_index: slotIndex
+            selected_slot_index: slotIndex,
+            recipient_message: byID('recipient-message').value.trim()
         });
         if (!result || result.status !== 'accepted' || typeof result.expires_at !== 'string') throw new APIError(0, 'The server returned an invalid response.');
         renderAccepted(labels, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]));
@@ -513,8 +562,8 @@ async function acceptInvite() {
     }
 }
 
-function addStatusRow(parent, label, value) {
-    const row = makeElement('div', 'status-row');
+function addStatusRow(parent, label, value, extraClass = '') {
+    const row = makeElement('div', ['status-row', extraClass].filter(Boolean).join(' '));
     row.append(makeElement('strong', '', `${label}: `), document.createTextNode(value));
     parent.appendChild(row);
 }
@@ -541,6 +590,7 @@ function renderStatus(data) {
         if (data.custom_idea) labels.push(data.custom_idea);
         addStatusRow(details, 'Vibe', labels.join(' & '));
         addStatusRow(details, 'Time', formatSlot(data.proposed_slots[data.selected_slot_index]));
+        if (data.recipient_message) addStatusRow(details, `Message from ${data.recipient_name}`, data.recipient_message, 'status-message');
         addStatusRow(details, 'Accepted', new Date(data.accepted_at).toLocaleString());
         addStatusRow(details, 'Expires', new Date(data.expires_at).toLocaleString());
     }
@@ -663,21 +713,19 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
     byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Status Link 🔒'));
     byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
-    byID('share-back-btn').addEventListener('click', () => showScreen('asker-card'));
+    byID('share-back-btn').addEventListener('click', startNewInvite);
     byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));
     byID('sender-message').addEventListener('input', () => {
         byID('sender-message-count').textContent = String([...byID('sender-message').value].length);
+    });
+    byID('recipient-message').addEventListener('input', () => {
+        byID('recipient-message-count').textContent = String([...byID('recipient-message').value].length);
     });
     byID('other-freeform').addEventListener('input', updateAcceptButton);
     byID('yes-btn').addEventListener('click', acceptInvite);
     byID('status-refresh-btn').addEventListener('click', refreshStatus);
     byID('status-delete-btn').addEventListener('click', deleteInvite);
-    byID('unavailable-create-btn').addEventListener('click', () => {
-        currentInviteToken = '';
-        currentStatusToken = '';
-        history.replaceState(null, '', `${location.pathname}${location.search}`);
-        showScreen('asker-card');
-    });
+    byID('unavailable-create-btn').addEventListener('click', startNewInvite);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
     document.addEventListener('click', () => closeEmojiPalettes());
     window.addEventListener('online', refreshStatus);
