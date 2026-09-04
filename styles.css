@@ -261,7 +261,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .accepted-note {
     display: inline-flex; align-items: center; justify-content: center; margin: 1.25rem 0 0;
-    padding: 0.55rem 1rem; border-radius: 999px; background: #ffe7ed;
     color: #9f3f57; font-size: 0.95rem; font-weight: 600;
 }
 .proposal-actions {

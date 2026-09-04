@@ -619,8 +619,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=29" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=29">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=32" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -634,6 +634,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="accepted-message"`,
 		`id="accepted-message-label"`,
 		`id="accepted-message-text"`,
+		`class="accepted-note">Can't wait, see you soon! 🤩`,
 		`id="share-invite-label"`,
 		`PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)`,
 		`class="share-tertiary-actions"`,
@@ -675,7 +676,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"const celebrationEmojis = ['😍']", `byID('recipient-title').textContent = "It's a date!"`, "You've accepted ${currentInvite.asker_name}'s invite!", "makeElement('span', 'accepted-popper', '🎉')", "makeElement('span', 'accepted-sparkles', '✨')", "startCelebration", "clearCelebration", "window.innerWidth < 480 ? 160 : 240", "const waveSeconds = 1.2", "const minimumFallSeconds = 3", "const fallVarianceSeconds = 0.8", "const isHeroPiece = index % 5 === 0", "const horizontalSlot = index % 14", "startX = -4", "horizontalSlot < 3", "horizontalSlot > 10", "((index + Math.random()) / pieceCount) * (waveSeconds + duration)", "isHeroPiece ? 4.5 + Math.random() * 1.5 : 2.25 + Math.random() * 1.75", "piece.addEventListener('animationend', () => piece.remove(), { once: true })", "waveSeconds + maximumFallSeconds + 0.1", "(prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"const celebrationEmojis = ['😍']", "${currentInvite.recipient_name}, it’s a date!", "Your response has been shared with ${currentInvite.asker_name}", "makeElement('span', 'accepted-popper', '🎉')", "makeElement('span', 'accepted-sparkles', '✨')", "startCelebration", "clearCelebration", "window.innerWidth < 480 ? 160 : 240", "const waveSeconds = 1.2", "const minimumFallSeconds = 3", "const fallVarianceSeconds = 0.8", "const isHeroPiece = index % 5 === 0", "const horizontalSlot = index % 14", "startX = -4", "horizontalSlot < 3", "horizontalSlot > 10", "((index + Math.random()) / pieceCount) * (waveSeconds + duration)", "isHeroPiece ? 4.5 + Math.random() * 1.5 : 2.25 + Math.random() * 1.75", "piece.addEventListener('animationend', () => piece.remove(), { once: true })", "waveSeconds + maximumFallSeconds + 0.1", "(prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
 		}

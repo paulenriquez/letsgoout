@@ -596,8 +596,8 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
         makeElement('span', 'accepted-popper', '🎉'),
         makeElement('span', 'accepted-sparkles', '✨'),
     );
-    byID('recipient-title').textContent = "It's a date!";
-    byID('recipient-subtitle').textContent = `You've accepted ${currentInvite.asker_name}'s invite!`;
+    byID('recipient-title').textContent = `${currentInvite.recipient_name}, it’s a date!`;
+    byID('recipient-subtitle').textContent = `Your response has been shared with ${currentInvite.asker_name}`;
     byID('accepted-ideas-icon').textContent = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])].join(' ');
     byID('accepted-ideas').textContent = [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ');
     byID('accepted-slot').textContent = slotLabel;
