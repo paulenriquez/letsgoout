@@ -591,9 +591,13 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     recipientCard.classList.add('accepted-state');
     byID('preview-toolbar').classList.add('hidden');
     prepareNoButtonPosition();
-    byID('recipient-emoji').textContent = '🎉✨';
-    byID('recipient-title').textContent = "It's a date!!";
-    byID('recipient-subtitle').textContent = 'The plan is officially locked in 💕';
+    const recipientEmoji = byID('recipient-emoji');
+    recipientEmoji.replaceChildren(
+        makeElement('span', 'accepted-popper', '🎉'),
+        makeElement('span', 'accepted-sparkles', '✨'),
+    );
+    byID('recipient-title').textContent = "It's a date!";
+    byID('recipient-subtitle').textContent = `You've accepted ${currentInvite.asker_name}'s invite!`;
     byID('accepted-ideas-icon').textContent = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])].join(' ');
     byID('accepted-ideas').textContent = [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ');
     byID('accepted-slot').textContent = slotLabel;
