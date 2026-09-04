@@ -94,7 +94,7 @@ func (a *app) staticHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if clean == "index.html" || clean == "service-worker.js" {
+		if clean == "index.html" {
 			w.Header().Set("Cache-Control", "no-cache")
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=86400")

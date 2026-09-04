@@ -134,16 +134,6 @@ input:focus, select:focus { border-color: var(--primary); background-color: #fff
 .private-link-label { margin-top: 1rem; }
 .copy-status-button { margin-top: 0; }
 .hidden { display: none !important; }
-.modal-overlay {
-    position: fixed; inset: 0; background: rgba(92, 67, 71, 0.45); display: flex;
-    align-items: center; justify-content: center; padding: 24px; z-index: 200;
-}
-.install-modal { max-width: 360px; }
-.install-app-icon {
-    width: 76px; height: 76px; border-radius: 18px; margin: 0 auto 0.7rem;
-    box-shadow: 0 8px 18px rgba(255, 77, 109, 0.35);
-}
-#install-modal-text { font-size: 0.95rem; line-height: 1.5; }
 .header-illustration { font-size: 3rem; margin-bottom: 0.2rem; animation: float 3s ease-in-out infinite; }
 .form-error { color: #b4233b; background: #fff0f3; border-radius: 12px; padding: 0.65rem; }
 .status-details {

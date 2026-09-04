@@ -485,48 +485,10 @@ function prepareNoButtonPosition() {
     noButton.style.top = '';
 }
 
-function setupInstallPrompt() {
-    const overlay = byID('install-modal-overlay');
-    const acceptButton = byID('install-accept-btn');
-    let deferredPrompt = null;
-    const ua = navigator.userAgent || '';
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-    const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const inApp = /Instagram|FBAN|FBAV|FB_IAB|Messenger|Line\/|Twitter|TikTok|Snapchat|WhatsApp/i.test(ua);
-    const dismissed = localStorage.getItem('installPromptDismissed') === '1';
-    const eligible = !standalone && !location.hash.startsWith('#/invite/') && !location.hash.startsWith('#/status/') && !dismissed;
-    const show = () => { if (eligible) overlay.classList.remove('hidden'); };
-    if (eligible && inApp) {
-        byID('install-modal-title').textContent = 'Open in your browser';
-        byID('install-modal-text').textContent = 'To save this app, use the ••• menu and choose “Open in Browser” first 💕';
-        acceptButton.classList.add('hidden');
-        window.setTimeout(show, 1800);
-    } else if (eligible && ios) {
-        byID('install-modal-title').textContent = /CriOS|FxiOS|EdgiOS/i.test(ua) ? 'Open in Safari' : 'Add to Home Screen';
-        byID('install-modal-text').textContent = 'In Safari, tap Share, then choose “Add to Home Screen” 💕';
-        acceptButton.classList.add('hidden');
-        window.setTimeout(show, 1500);
-    } else if (eligible) {
-        window.addEventListener('beforeinstallprompt', (event) => {
-            event.preventDefault(); deferredPrompt = event; show();
-        });
-    }
-    acceptButton.addEventListener('click', async () => {
-        if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; }
-        overlay.classList.add('hidden');
-    });
-    byID('install-dismiss-btn').addEventListener('click', () => {
-        localStorage.setItem('installPromptDismissed', '1'); overlay.classList.add('hidden');
-    });
-    window.addEventListener('appinstalled', () => overlay.classList.add('hidden'));
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     setupCreatorIdeas();
     createCustomPickerRow();
     setupNoButton();
-    setupInstallPrompt();
     byID('start-btn').addEventListener('click', () => showScreen('asker-card'));
     byID('add-slot-trigger').addEventListener('click', createCustomPickerRow);
     byID('generate-btn').addEventListener('click', createInvite);

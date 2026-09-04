@@ -20,7 +20,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed index.html styles.css app.js service-worker.js manifest.webmanifest *.png *.svg fonts/*.woff2 migrations/*.sql
+//go:embed index.html styles.css app.js favicon.ico favicon.svg fonts/*.woff2 migrations/*.sql
 var embeddedFiles embed.FS
 
 func main() {

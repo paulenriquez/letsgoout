@@ -526,7 +526,7 @@ func TestXSSFieldsAreJSONEscapedAndRoundTrip(t *testing.T) {
 	}
 }
 
-func TestHealthStaticAndServiceWorkerSeparation(t *testing.T) {
+func TestHealthAndStaticAssets(t *testing.T) {
 	now := time.Now().UTC()
 	handler := testApp(t, &now).routes()
 	health := request(t, handler, http.MethodGet, "/healthz", nil)
@@ -534,29 +534,49 @@ func TestHealthStaticAndServiceWorkerSeparation(t *testing.T) {
 		t.Fatalf("health = %d", health.Code)
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
-	if index.Code != http.StatusOK || !strings.Contains(index.Body.String(), `<script src="/app.js?v=8" defer></script>`) {
+	if index.Code != http.StatusOK ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=8" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico" sizes="32x32">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
+	}
+	faviconICO := request(t, handler, http.MethodGet, "/favicon.ico", nil)
+	if faviconICO.Code != http.StatusOK || faviconICO.Header().Get("Content-Type") != "image/vnd.microsoft.icon" {
+		t.Fatalf("ICO favicon = %d, content type = %q", faviconICO.Code, faviconICO.Header().Get("Content-Type"))
+	}
+	favicon := request(t, handler, http.MethodGet, "/favicon.svg", nil)
+	if favicon.Code != http.StatusOK || favicon.Header().Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("favicon = %d, content type = %q", favicon.Code, favicon.Header().Get("Content-Type"))
 	}
 	if strings.Contains(index.Body.String(), "recipient-pronoun") {
 		t.Fatal("static index still contains pronoun selector")
+	}
+	for _, marker := range []string{"rel=\"manifest\"", "apple-touch-icon", "mobile-web-app", "theme-color", "install-modal"} {
+		if strings.Contains(index.Body.String(), marker) {
+			t.Fatalf("static index still contains PWA marker %q", marker)
+		}
 	}
 	client, err := os.ReadFile("app.js")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(client), ".pronoun") || !strings.Contains(string(client), "wants to take you out! Pick your ideal date:") {
+	clientText := string(client)
+	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
-	worker, err := os.ReadFile("service-worker.js")
-	if err != nil {
-		t.Fatal(err)
+	for _, marker := range []string{"serviceWorker", "setupInstallPrompt", "beforeinstallprompt", "appinstalled"} {
+		if strings.Contains(clientText, marker) {
+			t.Fatalf("client still contains PWA marker %q", marker)
+		}
 	}
-	text := string(worker)
-	if !strings.Contains(text, "url.pathname.startsWith('/api/')") || !strings.Contains(text, "ALLOWED_PATHS.has") || strings.Contains(text, "cache.put(request") {
-		t.Fatal("service worker does not enforce API/static cache separation")
-	}
-	if !strings.Contains(text, "letsgoout-v8") || !strings.Contains(text, "/app.js?v=8") || !strings.Contains(text, "/styles.css?v=8") {
-		t.Fatal("service worker cache version was not bumped")
+	for _, asset := range []string{
+		"/service-worker.js", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
+		"/icon-maskable-512.png", "/apple-touch-icon.png", "/icon.svg", "/icon-maskable.svg",
+	} {
+		response := request(t, handler, http.MethodGet, asset, nil)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("removed PWA asset %s = %d, want %d", asset, response.Code, http.StatusNotFound)
+		}
 	}
 }
 

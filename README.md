@@ -12,7 +12,7 @@ A date invitation app, forked from [vantanferny/letsgoout](https://github.com/va
 
 1. Replaced JSONBin and EmailJS with a self-hosted Go and SQLite backend.
 2. Added secure invite and status links with acceptance tracking, expiry, and deletion.
-3. Bundled the PWA into a production-ready, non-root Docker container with security and rate limiting.
+3. Bundled the web app into a production-ready, non-root Docker container with security and rate limiting.
 
 ## Run locally
 
