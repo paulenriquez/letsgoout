@@ -29,7 +29,7 @@ let statusCountdownTimer = 0;
 let nextStatusRefreshAt = 0;
 let statusAutoRefreshEnabled = false;
 
-const celebrationEmojis = ['😍'];
+const celebrationEmojis = ['😍', '🥰', '♥️', '💘', '💗', '💓'];
 const statusRefreshInterval = 15000;
 
 const byID = (id) => document.getElementById(id);
@@ -512,8 +512,9 @@ function startCelebration() {
     const waveSeconds = 1.2;
     const minimumFallSeconds = 3;
     const fallVarianceSeconds = 0.8;
+    const celebrationEmoji = celebrationEmojis[Math.floor(Math.random() * celebrationEmojis.length)];
     for (let index = 0; index < pieceCount; index += 1) {
-        const piece = makeElement('span', 'confetti-piece', celebrationEmojis[index % celebrationEmojis.length]);
+        const piece = makeElement('span', 'confetti-piece', celebrationEmoji);
         const isHeroPiece = index % 5 === 0;
         const horizontalSlot = index % 14;
         const startX = -4 + horizontalSlot * (108 / 13) + (Math.random() * 4.8 - 2.4);
@@ -643,10 +644,7 @@ function renderAccepted(choice, slotLabel, recipientMessage) {
     byID('preview-toolbar').classList.add('hidden');
     prepareNoButtonPosition();
     const recipientEmoji = byID('recipient-emoji');
-    recipientEmoji.replaceChildren(
-        makeElement('span', 'accepted-popper', '🎉'),
-        makeElement('span', 'accepted-sparkles', '✨'),
-    );
+    recipientEmoji.textContent = '💖';
     byID('recipient-title').textContent = `${currentInvite.recipient_name}, it’s a date!`;
     byID('recipient-subtitle').textContent = `Your response has been shared with ${currentInvite.asker_name}`;
     byID('recipient-subtitle').classList.remove('hidden');

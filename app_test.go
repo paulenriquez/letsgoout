@@ -638,8 +638,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=70" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=69">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=72" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=70">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -817,10 +817,13 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("status invite-link state is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"const celebrationEmojis = ['😍']", "${currentInvite.recipient_name}, it’s a date!", "Your response has been shared with ${currentInvite.asker_name}", "makeElement('span', 'accepted-popper', '🎉')", "makeElement('span', 'accepted-sparkles', '✨')", "startCelebration", "clearCelebration", "window.innerWidth < 480 ? 160 : 240", "const waveSeconds = 1.2", "const minimumFallSeconds = 3", "const fallVarianceSeconds = 0.8", "const isHeroPiece = index % 5 === 0", "const horizontalSlot = index % 14", "startX = -4", "horizontalSlot < 3", "horizontalSlot > 10", "((index + Math.random()) / pieceCount) * (waveSeconds + duration)", "isHeroPiece ? 4.5 + Math.random() * 1.5 : 2.25 + Math.random() * 1.75", "piece.addEventListener('animationend', () => piece.remove(), { once: true })", "waveSeconds + maximumFallSeconds + 0.1", "(prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"const celebrationEmojis = ['😍', '🥰', '♥️', '💘', '💗', '💓']", "const celebrationEmoji = celebrationEmojis[Math.floor(Math.random() * celebrationEmojis.length)]", "makeElement('span', 'confetti-piece', celebrationEmoji)", "recipientEmoji.textContent = '💖'", "${currentInvite.recipient_name}, it’s a date!", "Your response has been shared with ${currentInvite.asker_name}", "startCelebration", "clearCelebration", "window.innerWidth < 480 ? 160 : 240", "const waveSeconds = 1.2", "const minimumFallSeconds = 3", "const fallVarianceSeconds = 0.8", "const isHeroPiece = index % 5 === 0", "const horizontalSlot = index % 14", "startX = -4", "horizontalSlot < 3", "horizontalSlot > 10", "((index + Math.random()) / pieceCount) * (waveSeconds + duration)", "isHeroPiece ? 4.5 + Math.random() * 1.5 : 2.25 + Math.random() * 1.75", "piece.addEventListener('animationend', () => piece.remove(), { once: true })", "waveSeconds + maximumFallSeconds + 0.1", "(prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
 		}
+	}
+	if strings.Contains(clientText, "accepted-popper") || strings.Contains(clientText, "accepted-sparkles") {
+		t.Fatal("accepted celebration still renders the old popper and sparkles illustration")
 	}
 	for _, marker := range []string{"function selectedPlanIdea(selectedIdeas, customIdeas, customIdea)", "const selectedID = selectedIdeas[0]", "return { label: customIdea, emoji: customIdea ? '🤔' : '🚀' }", "ideaEmoji(selectedID, customIdeas)", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(choice, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)", "renderAcceptedResponse(data)", "if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data)"} {
 		if !strings.Contains(clientText, marker) {
@@ -874,7 +877,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("decline button Safari rendering safeguard is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-summary-accepted", "margin-top: 0.65rem", ".status-summary-confirmation", "color: #277a47", ".status-summary-check { width: 1.25rem", ".status-summary-caption { color: var(--text-muted); font-weight: 400", ".status-response { margin-bottom: 1rem; }", ".status-revisit-invite-button { width: 100%; margin: 0; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", "font-size: 5.5rem; line-height: 1", "translateY(-3px)", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-summary-accepted", "margin-top: 0.65rem", ".status-summary-confirmation", "color: #277a47", ".status-summary-check { width: 1.25rem", ".status-summary-caption { color: var(--text-muted); font-weight: 400", ".status-response { margin-bottom: 1rem; }", ".status-revisit-invite-button { width: 100%; margin: 0; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}
