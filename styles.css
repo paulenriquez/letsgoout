@@ -199,6 +199,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     animation: emoji-confetti-fall var(--confetti-duration) linear var(--confetti-delay) forwards;
 }
 #recipient-card.accepted-state {
+    --accepted-content-gap: 1.4rem;
     isolation: isolate; padding: 2.5rem 1.25rem 1.5rem; border-color: #ffbdcb;
     background:
         radial-gradient(circle 8.5rem at 50% 5.5rem, rgba(255, 226, 151, 0.46), rgba(255, 240, 201, 0.18) 56%, transparent 76%),
@@ -225,7 +226,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     letter-spacing: -0.035em; animation: celebration-title-in 0.65s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 #recipient-card.accepted-state #recipient-subtitle {
-    margin-bottom: 1.4rem; color: #8f5964; font-size: 1rem;
+    margin-bottom: var(--accepted-content-gap); color: #8f5964; font-size: 1rem;
 }
 .accepted-plan { width: 100%; }
 .accepted-plan-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
@@ -272,7 +273,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .accepted-note {
-    display: inline-flex; align-items: center; justify-content: center; margin: 0.75rem 0 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin: var(--accepted-content-gap) 0 0;
     color: #9f3f57; font-size: 1.1rem; font-weight: 400; line-height: 1.4;
 }
 .accepted-replay-button { margin: 2rem 0 0; }
