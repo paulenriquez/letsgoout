@@ -5,7 +5,7 @@ A date invitation app, forked from [vantanferny/letsgoout](https://github.com/va
 ## How it works
 
 1. Create a personalized invite with date ideas and time options.
-2. Send the invite link so the recipient can choose a vibe and time.
+2. Send the invite link so the recipient can choose a vibe and time (fun fact: the recipient will be unable to decline 😉).
 3. Keep the private status link to view the response or permanently delete the invite.
 
 ## What changed
