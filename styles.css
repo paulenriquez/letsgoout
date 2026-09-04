@@ -308,7 +308,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     border: 3px solid var(--secondary-button-border);
     border-radius: 50px; width: 130px; height: 50px; position: absolute; left: 0; top: 0;
     box-shadow: 0 4px 0 #efbdc7, 0 7px 16px rgba(164, 53, 79, 0.16);
-    transition: none; z-index: 20;
+    -webkit-tap-highlight-color: transparent; backface-visibility: hidden; touch-action: none;
+    transition: none; will-change: transform; z-index: 20;
 }
 #no-btn:focus-visible {
     outline: 3px solid rgba(164, 53, 79, 0.35); outline-offset: 4px;
@@ -317,7 +318,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     content: ''; position: absolute; inset: -18px; border-radius: 50px;
 }
 #no-btn.dodge-ready {
-    transition: left 0.75s cubic-bezier(0.16, 1, 0.3, 1), top 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .link-box {
     background: #fffbfe; border: 2px dashed var(--primary); padding: 15px;

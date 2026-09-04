@@ -596,7 +596,7 @@ function renderRecipientView(data, source = '') {
         byID('other-input-container').classList.toggle('hidden', !selected);
         byID('other-freeform').setAttribute('aria-required', String(selected));
         if (!selected) byID('other-freeform').setAttribute('aria-invalid', 'false');
-        prepareNoButtonPosition();
+        setupInitialNoButtonPosition();
         updateAcceptButton();
     };
     ideasGrid.appendChild(createIdeaCard(other, selectOther, !previewMode));
@@ -624,6 +624,7 @@ function renderRecipientView(data, source = '') {
     byID('no-btn').disabled = previewMode;
     prepareNoButtonPosition();
     showScreen('recipient-card');
+    if (!previewMode) setupInitialNoButtonPosition();
     updateAcceptButton();
 }
 
@@ -954,7 +955,12 @@ function setupNoButton() {
         if (previewMode) return;
         if (noButton.parentElement !== document.body) setupInitialNoButtonPosition();
         const current = noButton.getBoundingClientRect();
-        noButton.classList.add('dodge-ready');
+        // Rebase before transforming so WebKit does not leave pixels from the previous layer behind.
+        noButton.classList.remove('dodge-ready');
+        noButton.style.transform = 'none';
+        noButton.style.left = `${current.left + window.scrollX}px`;
+        noButton.style.top = `${current.top + window.scrollY}px`;
+        void noButton.offsetWidth;
         const padding = 30;
         const maxX = Math.max(padding, window.innerWidth - noButton.offsetWidth - padding);
         const maxY = Math.max(padding, window.innerHeight - noButton.offsetHeight - padding);
@@ -992,33 +998,67 @@ function setupNoButton() {
             return exit > 0.001 && entry < 0.999;
         };
         const distanceTo = (target) => Math.hypot(target.x - current.left, target.y - current.top);
-        const safeTargets = [
+        const candidateTargets = [
             { x: padding, y: padding },
             { x: maxX, y: padding },
             { x: padding, y: maxY },
-            { x: maxX, y: maxY }
-        ].filter((target) => !overlapsAccept(target) && !pathCrossesAccept(target));
-        if (safeTargets.length === 0) return;
-        const farthestTarget = safeTargets.reduce((farthest, target) => (
-            distanceTo(target) > distanceTo(farthest) ? target : farthest
-        ));
-        const minimumTravel = Math.min(120, distanceTo(farthestTarget));
-        let target = farthestTarget;
+            { x: maxX, y: maxY },
+            { x: Math.round((padding + maxX) / 2), y: padding },
+            { x: Math.round((padding + maxX) / 2), y: maxY },
+            { x: padding, y: Math.round((padding + maxY) / 2) },
+            { x: maxX, y: Math.round((padding + maxY) / 2) }
+        ];
         for (let attempt = 0; attempt < 40; attempt += 1) {
-            const candidate = {
+            candidateTargets.push({
                 x: Math.floor(Math.random() * (maxX - padding + 1) + padding),
                 y: Math.floor(Math.random() * (maxY - padding + 1) + padding)
-            };
-            if (!overlapsAccept(candidate) && !pathCrossesAccept(candidate) && distanceTo(candidate) >= minimumTravel) {
-                target = candidate;
-                break;
-            }
+            });
         }
-        noButton.style.left = `${target.x + window.scrollX}px`;
-        noButton.style.top = `${target.y + window.scrollY}px`;
+        const farthestDistance = Math.max(...candidateTargets.map(distanceTo));
+        const minimumTravel = Math.min(120, farthestDistance);
+        const movingTargets = candidateTargets.filter((target) => distanceTo(target) >= minimumTravel);
+        const nonOverlappingTargets = movingTargets.filter((target) => !overlapsAccept(target));
+        const safeTargets = nonOverlappingTargets.filter((target) => !pathCrossesAccept(target));
+        const targetPool = safeTargets.length > 0
+            ? safeTargets
+            : (nonOverlappingTargets.length > 0 ? nonOverlappingTargets : movingTargets);
+        const target = targetPool[Math.floor(Math.random() * targetPool.length)];
+        noButton.classList.add('dodge-ready');
+        noButton.style.transform = `translate3d(${target.x - current.left}px, ${target.y - current.top}px, 0)`;
     }
-    noButton.addEventListener('mouseover', dodge);
-    noButton.addEventListener('touchstart', (event) => { event.preventDefault(); dodge(); }, { passive: false });
+    function settleDodge(event) {
+        if (event.propertyName !== 'transform' || noButton.parentElement !== document.body) return;
+        const settled = noButton.getBoundingClientRect();
+        noButton.classList.remove('dodge-ready');
+        void noButton.offsetWidth;
+        noButton.style.left = `${settled.left + window.scrollX}px`;
+        noButton.style.top = `${settled.top + window.scrollY}px`;
+        noButton.style.transform = 'translate3d(0, 0, 0)';
+    }
+    function pointHitsNoButton(x, y) {
+        const rect = noButton.getBoundingClientRect();
+        const touchPadding = 18;
+        return x >= rect.left - touchPadding
+            && x <= rect.right + touchPadding
+            && y >= rect.top - touchPadding
+            && y <= rect.bottom + touchPadding;
+    }
+    noButton.addEventListener('pointerenter', (event) => {
+        if (event.pointerType === 'mouse') dodge();
+    });
+    noButton.addEventListener('pointerdown', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        event.preventDefault();
+        dodge();
+    });
+    noButton.addEventListener('transitionend', settleDodge);
+    document.addEventListener('touchstart', (event) => {
+        const touch = event.touches[0];
+        if (!touch || previewMode || noButton.disabled || noButton.parentElement !== document.body) return;
+        if (!pointHitsNoButton(touch.clientX, touch.clientY)) return;
+        event.preventDefault();
+        dodge();
+    }, { capture: true, passive: false });
 }
 
 function setupInitialNoButtonPosition() {
@@ -1031,6 +1071,7 @@ function setupInitialNoButtonPosition() {
     noButton.style.left = `${rect.left + window.scrollX}px`;
     noButton.style.top = `${rect.top + window.scrollY}px`;
     noButton.style.position = 'absolute';
+    noButton.style.transform = 'translate3d(0, 0, 0)';
 }
 
 function prepareNoButtonPosition() {
@@ -1041,6 +1082,7 @@ function prepareNoButtonPosition() {
     noButton.style.position = '';
     noButton.style.left = '';
     noButton.style.top = '';
+    noButton.style.transform = '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

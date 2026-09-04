@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=62" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=64">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=63" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=65">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -779,10 +779,16 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("accepted vertical idea list is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "const minimumTravel = Math.min(120, distanceTo(farthestTarget))", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "].filter((target) => !overlapsAccept(target) && !pathCrossesAccept(target))", "if (!overlapsAccept(candidate) && !pathCrossesAccept(candidate) && distanceTo(candidate) >= minimumTravel)", "noButton.style.left = `${target.x + window.scrollX}px`", "noButton.style.top = `${target.y + window.scrollY}px`", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
+	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "if (!previewMode) setupInitialNoButtonPosition()", "const farthestDistance = Math.max(...candidateTargets.map(distanceTo))", "const minimumTravel = Math.min(120, farthestDistance)", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "const movingTargets = candidateTargets.filter((target) => distanceTo(target) >= minimumTravel)", "const nonOverlappingTargets = movingTargets.filter((target) => !overlapsAccept(target))", "? safeTargets", ": (nonOverlappingTargets.length > 0 ? nonOverlappingTargets : movingTargets)", "noButton.style.left = `${current.left + window.scrollX}px`", "noButton.style.top = `${current.top + window.scrollY}px`", "noButton.style.transform = `translate3d(${target.x - current.left}px, ${target.y - current.top}px, 0)`", "function settleDodge(event)", "noButton.style.left = `${settled.left + window.scrollX}px`", "function pointHitsNoButton(x, y)", "const touchPadding = 18", "if (event.pointerType !== 'mouse') return", "document.addEventListener('touchstart'", "pointHitsNoButton(touch.clientX, touch.clientY)", "{ capture: true, passive: false }", "noButton.addEventListener('pointerdown'", "noButton.addEventListener('transitionend', settleDodge)", "noButton.style.transform = 'translate3d(0, 0, 0)'", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("recipient invite safeguards are missing marker %q", marker)
 		}
+	}
+	if strings.Contains(clientText, "if (safeTargets.length === 0) return") {
+		t.Fatal("decline button can still ignore a tap when no path-safe corner exists")
+	}
+	if strings.Contains(clientText, "noButton.addEventListener('touchstart'") {
+		t.Fatal("decline button still uses the unreliable touch-only handler")
 	}
 	if strings.Contains(clientText, "window.addEventListener('scroll', prepareNoButtonPosition") {
 		t.Fatal("decline button still resets while scrolling")
@@ -800,6 +806,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	styleText := string(styles)
 	if !strings.Contains(styleText, ".preview-actions {\n    display: flex; flex-direction: column; gap: 12px; margin: 1rem 0 0.5rem;") {
 		t.Fatal("preview actions are missing the requested whitespace")
+	}
+	for _, marker := range []string{"-webkit-tap-highlight-color: transparent", "backface-visibility: hidden; touch-action: none", "transition: none; will-change: transform", "transition: transform 0.75s"} {
+		if !strings.Contains(styleText, marker) {
+			t.Fatalf("decline button Safari rendering safeguard is missing marker %q", marker)
+		}
 	}
 	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-response { margin-bottom: 1rem; }", ".status-revisit-invite-button { width: 100%; margin: 0; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
