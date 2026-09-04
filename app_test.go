@@ -118,6 +118,17 @@ func TestTokenGenerationAndHashing(t *testing.T) {
 	if _, _, err := newToken(iotest.ErrReader(io.ErrUnexpectedEOF)); err == nil {
 		t.Fatal("expected random source error")
 	}
+	recipientToken, recipientHash, ok := recipientTokenForStatus(token)
+	if !ok || len(recipientToken) != 22 || recipientHash != sha256.Sum256([]byte(recipientToken)) {
+		t.Fatal("could not derive recipient token from status token")
+	}
+	repeatedToken, repeatedHash, ok := recipientTokenForStatus(token)
+	if !ok || repeatedToken != recipientToken || repeatedHash != recipientHash {
+		t.Fatal("recipient token derivation is not deterministic")
+	}
+	if _, _, ok := recipientTokenForStatus("invalid"); ok {
+		t.Fatal("derived a recipient token from an invalid status token")
+	}
 }
 
 func TestValidation(t *testing.T) {
@@ -363,10 +374,12 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		RecipientMessage  string       `json:"recipient_message"`
 		SelectedSlotIndex int          `json:"selected_slot_index"`
 		ExpiresAt         string       `json:"expires_at"`
+		InviteURL         string       `json:"invite_url"`
 	}
 	decodeResponse(t, status, &statusResult)
 	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 2 ||
-		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" || statusResult.RecipientMessage != strings.TrimSpace(recipientMessage) {
+		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" || statusResult.RecipientMessage != strings.TrimSpace(recipientMessage) ||
+		statusResult.InviteURL != testOrigin+"/#/invite/"+inviteToken {
 		t.Fatalf("bad status: %+v", statusResult)
 	}
 
@@ -588,8 +601,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=16" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=23">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=20" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=27">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -598,8 +611,12 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="share-instructions"`,
 		`<span class="form-label">INVITE LINK</span>`,
 		`id="share-invite-label">Share this`,
+		`id="generated-invite-box" aria-label="Copy invite link"`,
+		`class="link-box-value" id="generated-invite-url"`,
 		`<span class="form-label">PRIVATE STATUS LINK</span>`,
 		`id="share-status-label">View response here`,
+		`id="generated-status-box" aria-label="Copy private status link"`,
+		`class="link-box-value" id="generated-status-url"`,
 		`class="private-link-warning-icon" aria-hidden="true"`,
 		`<strong>Keep this link private</strong>, and save it somewhere safe.`,
 		`It can't be recovered if lost.`,
@@ -609,6 +626,10 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`class="btn btn-tertiary" id="share-back-btn">← Create New Invite`,
 		`id="recipient-message-label">3. Message (Optional)`,
 		`id="recipient-message" maxlength="280"`,
+		`id="status-invite-link" target="_blank" rel="noopener">View Invite Link ↗`,
+		`id="status-accepted-row"`,
+		`id="status-expires"`,
+		`id="status-updated"`,
 	} {
 		if !strings.Contains(index.Body.String(), marker) {
 			t.Fatalf("generated links UI is missing marker %q", marker)
@@ -638,7 +659,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
-	for _, marker := range []string{"Share this to ${recipientName}", "View response from ${recipientName} here", "Share the invite link with ${recipientName}", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	for _, marker := range []string{"Share this to ${recipientName}", "View response from ${recipientName} here", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
