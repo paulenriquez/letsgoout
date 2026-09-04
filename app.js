@@ -289,6 +289,7 @@ function renderRecipientView(data, isPreview) {
         const selected = recipientSelectedIdeas.has('other');
         card.classList.toggle('selected', selected);
         byID('other-input-container').classList.toggle('hidden', !selected);
+        window.requestAnimationFrame(setupInitialNoButtonPosition);
         updateAcceptButton();
     }, true));
 
