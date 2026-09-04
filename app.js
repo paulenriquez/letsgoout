@@ -20,6 +20,7 @@ let activeCreateRequest = null;
 let currentInvite = null;
 let currentInviteToken = '';
 let currentStatusToken = '';
+let currentStatusInviteURL = '';
 let previewMode = false;
 let previewSource = '';
 let celebrationTimer = 0;
@@ -738,6 +739,8 @@ function scheduleStatusRefresh() {
 function renderStatus(data) {
     const details = byID('status-details');
     const inviteShare = byID('status-invite-share');
+    const inviteShareDetails = byID('status-invite-share-details');
+    const revisitInviteButton = byID('status-revisit-invite-btn');
     const summary = byID('status-summary');
     const acceptedRow = byID('status-accepted-row');
     const updatedRow = byID('status-updated-row');
@@ -747,12 +750,17 @@ function renderStatus(data) {
     summary.classList.remove('hidden');
     byID('status-expires-row').classList.remove('hidden');
     byID('status-actions').classList.remove('hidden');
-    if (data.invite_url) {
+    currentStatusInviteURL = data.invite_url || '';
+    if (currentStatusInviteURL) {
         byID('status-invite-label').textContent = `Share this to ${data.recipient_name}`;
-        byID('status-invite-url').textContent = data.invite_url;
+        byID('status-invite-url').textContent = currentStatusInviteURL;
+        inviteShareDetails.classList.toggle('hidden', data.status !== 'pending');
+        revisitInviteButton.classList.toggle('hidden', data.status !== 'accepted');
         inviteShare.classList.remove('hidden');
     } else {
         byID('status-invite-url').textContent = '';
+        inviteShareDetails.classList.add('hidden');
+        revisitInviteButton.classList.add('hidden');
         inviteShare.classList.add('hidden');
     }
     if (data.status === 'pending') {
@@ -806,6 +814,7 @@ function renderStatus(data) {
 
 function renderStatusError(message) {
     const checkedAt = new Date();
+    currentStatusInviteURL = '';
     byID('status-card').classList.add('status-error-state');
     byID('status-summary').classList.add('hidden');
     byID('status-details').classList.add('hidden');
@@ -858,6 +867,7 @@ async function deleteInvite() {
     try {
         await postJSON('/api/status/delete', { token: currentStatusToken });
         currentStatusToken = '';
+        currentStatusInviteURL = '';
         statusAutoRefreshEnabled = false;
         clearStatusRefreshSchedule();
         byID('status-emoji').textContent = '🗑️';
@@ -897,6 +907,7 @@ function routeFromHash() {
     const statusMatch = location.hash.match(/^#\/status\/([A-Za-z0-9_-]{22})$/);
     if (inviteMatch) {
         currentStatusToken = '';
+        currentStatusInviteURL = '';
         statusAutoRefreshEnabled = false;
         clearStatusRefreshSchedule();
         loadInvite(inviteMatch[1]);
@@ -912,6 +923,7 @@ function routeFromHash() {
     }
     currentInviteToken = '';
     currentStatusToken = '';
+    currentStatusInviteURL = '';
     statusAutoRefreshEnabled = false;
     clearStatusRefreshSchedule();
     showScreen('landing-page');
@@ -1026,6 +1038,9 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
     byID('status-invite-box').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
     byID('status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
+    byID('status-revisit-invite-btn').addEventListener('click', () => {
+        if (currentStatusInviteURL) window.open(currentStatusInviteURL, '_blank', 'noopener,noreferrer');
+    });
     byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
     byID('share-back-btn').addEventListener('click', startNewInvite);
     byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));

@@ -363,6 +363,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .status-response { margin-bottom: 1rem; }
 .status-invite-share { margin: 0.25rem 0 1.25rem; }
+.status-revisit-invite-button { width: 100%; margin: 0; }
 .status-actions { display: flex; flex-direction: column; gap: 0.65rem; margin-top: 0.65rem; }
 .status-actions .btn { width: 100%; margin: 0; }
 #status-card { padding-bottom: 1.1rem; }

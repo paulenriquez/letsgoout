@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=56">
-    <script src="/app.js?v=57" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=57">
+    <script src="/app.js?v=58" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -182,14 +182,17 @@
         </section>
         <p class="form-error hidden" id="status-error" role="alert"></p>
         <div class="status-invite-share hidden" id="status-invite-share">
-            <div class="share-link-heading">
-                <span class="form-label">INVITE LINK</span>
-                <span class="share-link-subheading" id="status-invite-label">Share this</span>
+            <div id="status-invite-share-details">
+                <div class="share-link-heading">
+                    <span class="form-label">INVITE LINK</span>
+                    <span class="share-link-subheading" id="status-invite-label">Share this</span>
+                </div>
+                <button type="button" class="link-box clickable-link-box" id="status-invite-box" aria-label="Copy invite link">
+                    <span class="link-box-value" id="status-invite-url"></span>
+                </button>
+                <button class="btn btn-primary" id="status-copy-invite-btn">Copy Invite Link 📋</button>
             </div>
-            <button type="button" class="link-box clickable-link-box" id="status-invite-box" aria-label="Copy invite link">
-                <span class="link-box-value" id="status-invite-url"></span>
-            </button>
-            <button class="btn btn-primary" id="status-copy-invite-btn">Copy Invite Link 📋</button>
+            <button type="button" class="btn btn-secondary status-revisit-invite-button hidden" id="status-revisit-invite-btn">Revisit Invite Link 👀</button>
         </div>
         <div class="status-metadata hidden" id="status-metadata">
             <div class="status-metadata-row hidden" id="status-accepted-row">
