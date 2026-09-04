@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=18">
-    <script src="/app.js?v=14" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=19">
+    <script src="/app.js?v=15" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -52,11 +52,17 @@
         <div class="header-illustration">🔗</div>
         <h2>Links Generated!</h2>
         <p id="share-instructions">Send the invite link to them, and then use the private status link to view their response.</p>
-        <span class="form-label" id="share-invite-label">INVITE LINK - SEND THIS</span>
+        <div class="share-link-heading">
+            <span class="form-label">INVITE LINK</span>
+            <span class="share-link-subheading" id="share-invite-label">Send this</span>
+        </div>
         <div class="link-box" id="generated-invite-url"></div>
         <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
         <div class="private-link-heading">
-            <span class="form-label" id="share-status-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE</span>
+            <div class="share-link-heading">
+                <span class="form-label">PRIVATE STATUS LINK</span>
+                <span class="share-link-subheading" id="share-status-label">View response here</span>
+            </div>
             <span class="private-link-warning">
                 <!-- Lock icon from Lucide, https://lucide.dev (ISC License). Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that this notice appears in all copies. -->
                 <svg class="private-link-warning-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -588,16 +588,18 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=14" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=18">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=15" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=19">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
 	}
 	for _, marker := range []string{
 		`id="share-instructions"`,
-		`id="share-invite-label"`,
-		`id="share-status-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE`,
+		`<span class="form-label">INVITE LINK</span>`,
+		`id="share-invite-label">Send this`,
+		`<span class="form-label">PRIVATE STATUS LINK</span>`,
+		`id="share-status-label">View response here`,
 		`class="private-link-warning-icon" aria-hidden="true"`,
 		`<strong>KEEP THIS PRIVATE</strong>`,
 		`If you lose this link, you won’t be able to recover it.`,
@@ -636,7 +638,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
-	for _, marker := range []string{"INVITE LINK - SEND THIS TO", "PRIVATE STATUS LINK - VIEW RESPONSE FROM", "Send the invite link to ${recipientName}", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	for _, marker := range []string{"Send this to ${recipientName}", "View response from ${recipientName} here", "Send the invite link to ${recipientName}", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}

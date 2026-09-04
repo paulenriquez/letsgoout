@@ -371,8 +371,8 @@ async function createInvite() {
         activeInviteData = { ...activeInviteData, expires_at: result.expires_at };
         const recipientName = activeCreateRequest.recipient_name;
         byID('share-instructions').textContent = `Send the invite link to ${recipientName}, and then use the private status link to view their response.`;
-        byID('share-invite-label').textContent = `INVITE LINK - SEND THIS TO ${recipientName}`;
-        byID('share-status-label').textContent = `PRIVATE STATUS LINK - VIEW RESPONSE FROM ${recipientName} HERE`;
+        byID('share-invite-label').textContent = `Send this to ${recipientName}`;
+        byID('share-status-label').textContent = `View response from ${recipientName} here`;
         byID('generated-invite-url').textContent = result.invite_url;
         byID('generated-status-url').textContent = result.status_url;
         showScreen('share-card');
@@ -414,8 +414,8 @@ function startNewInvite() {
     prepareNoButtonPosition();
 
     byID('share-instructions').textContent = 'Send the invite link to them, and then use the private status link to view their response.';
-    byID('share-invite-label').textContent = 'INVITE LINK - SEND THIS';
-    byID('share-status-label').textContent = 'PRIVATE STATUS LINK - VIEW RESPONSE HERE';
+    byID('share-invite-label').textContent = 'Send this';
+    byID('share-status-label').textContent = 'View response here';
     byID('generated-invite-url').textContent = '';
     byID('generated-status-url').textContent = '';
     showError('create-error', '');
