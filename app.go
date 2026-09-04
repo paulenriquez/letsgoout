@@ -506,8 +506,12 @@ func validateAcceptance(req acceptRequest, rec inviteRecord) error {
 	if !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxRecipientMessage {
 		return errors.New("recipient message must not exceed 280 characters")
 	}
-	if len(req.SelectedIdeas) == 0 && custom == "" {
-		return errors.New("choose at least one offered or custom vibe")
+	choiceCount := len(req.SelectedIdeas)
+	if custom != "" {
+		choiceCount++
+	}
+	if choiceCount != 1 {
+		return errors.New("choose exactly one offered or custom date idea")
 	}
 	seen := make(map[string]bool)
 	for _, idea := range req.SelectedIdeas {

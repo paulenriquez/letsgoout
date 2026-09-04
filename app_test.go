@@ -187,6 +187,8 @@ func TestValidation(t *testing.T) {
 		"empty":                  {SelectedSlotIndex: &zero},
 		"unknown idea":           {SelectedIdeas: []string{"ramen"}, SelectedSlotIndex: &zero},
 		"unknown custom idea":    {SelectedIdeas: []string{"custom:1"}, SelectedSlotIndex: &zero},
+		"multiple ideas":         {SelectedIdeas: []string{"pizza", "custom:0"}, SelectedSlotIndex: &zero},
+		"offered idea and other": {SelectedIdeas: []string{"pizza"}, CustomIdea: "Arcade", SelectedSlotIndex: &zero},
 		"duplicate":              {SelectedIdeas: []string{"pizza", "pizza"}, SelectedSlotIndex: &zero},
 		"bad slot":               {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &one},
 		"long custom":            {CustomIdea: strings.Repeat("界", 121), SelectedSlotIndex: &zero},
@@ -353,7 +355,11 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	}
 	index := 1
 	recipientMessage := " Sounds perfect!\nSee you then. "
-	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee", "custom:0"}, CustomIdea: "Arcade", SelectedSlotIndex: &index, RecipientMessage: recipientMessage})
+	multipleIdeas := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee", "custom:0"}, SelectedSlotIndex: &index})
+	if multipleIdeas.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("multiple-idea accept = %d: %s", multipleIdeas.Code, multipleIdeas.Body.String())
+	}
+	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{}, CustomIdea: "Arcade", SelectedSlotIndex: &index, RecipientMessage: recipientMessage})
 	if accepted.Code != http.StatusOK {
 		t.Fatalf("accept status %d: %s", accepted.Code, accepted.Body.String())
 	}
@@ -377,7 +383,7 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		RecipientMessage  string   `json:"recipient_message"`
 	}
 	decodeResponse(t, acceptedView, &acceptedInvite)
-	if acceptedInvite.Status != "accepted" || len(acceptedInvite.SelectedIdeas) != 2 || acceptedInvite.CustomIdea != "Arcade" ||
+	if acceptedInvite.Status != "accepted" || len(acceptedInvite.SelectedIdeas) != 0 || acceptedInvite.CustomIdea != "Arcade" ||
 		acceptedInvite.SelectedSlotIndex != index || acceptedInvite.RecipientMessage != strings.TrimSpace(recipientMessage) {
 		t.Fatalf("bad accepted recipient view: %+v", acceptedInvite)
 	}
@@ -408,7 +414,7 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		InviteURL         string       `json:"invite_url"`
 	}
 	decodeResponse(t, status, &statusResult)
-	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 2 ||
+	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 0 ||
 		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" || statusResult.RecipientMessage != strings.TrimSpace(recipientMessage) ||
 		statusResult.InviteURL != testOrigin+"/#/invite/"+inviteToken {
 		t.Fatalf("bad status: %+v", statusResult)
@@ -632,7 +638,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=67" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=68" defer></script>`) ||
 		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=68">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
@@ -756,6 +762,18 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("recipient idea ordering is missing marker %q", marker)
 		}
 	}
+	for _, marker := range []string{
+		"card.setAttribute('aria-pressed', 'false')",
+		"const selectOnlyIdea = (id, card) =>",
+		"recipientSelectedIdeas.clear()",
+		"candidate.classList.remove('selected')",
+		"recipientSelectedIdeas.add(id)",
+		"const selectOther = previewMode ? null : (card) => selectOnlyIdea('other', card)",
+	} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("single recipient idea selection is missing marker %q", marker)
+		}
+	}
 	if strings.Contains(index.Body.String(), "status-refresh-btn") || strings.Contains(clientText, "status-refresh-btn") {
 		t.Fatal("private status page still has a manual refresh control")
 	}
@@ -794,17 +812,17 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"ideaEmoji(id, currentInvite.custom_ideas)", "...(customIdea ? ['🤔'] : [])", "...(customIdea ? [customIdea] : [])", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)", "renderAcceptedResponse(data)", "if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data)"} {
+	for _, marker := range []string{"function selectedPlanIdea(selectedIdeas, customIdeas, customIdea)", "const selectedID = selectedIdeas[0]", "return { label: customIdea, emoji: customIdea ? '🤔' : '🚀' }", "ideaEmoji(selectedID, customIdeas)", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(choice, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)", "renderAcceptedResponse(data)", "if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data)"} {
 		if !strings.Contains(clientText, marker) {
-			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
+			t.Fatalf("accepted single choice or message behavior is missing marker %q", marker)
 		}
 	}
 	if !strings.Contains(clientText, "byID('accepted-replay-confetti-btn').addEventListener('click', startCelebration)") {
 		t.Fatal("accepted confetti replay button is not wired to the celebration")
 	}
-	for _, marker := range []string{"function renderPlanIdeas(icon, list, labels, emojis)", "icon.textContent = emojis.length > 1 ? '🚀' : (emojis[0] || '🚀')", "const acceptedLabels = [...selectedLabels", "const acceptedEmojis = [...selectedEmojis", "const showItemEmojis = emojis.length > 1", "if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji'", "makeElement('span', 'accepted-idea-label'", "renderPlanIdeas(byID('status-response-ideas-icon'), byID('status-response-ideas'), labels, emojis)", "byID('status-response-slot').textContent = formatSlot", "`Message from ${data.recipient_name}`", "byID('status-response-message').classList.toggle('hidden', !data.recipient_message)"} {
+	for _, marker := range []string{"function renderPlanIdea(icon, list, choice)", "icon.textContent = choice.emoji || '🚀'", "makeElement('li', 'accepted-idea accepted-idea-single')", "makeElement('span', 'accepted-idea-label', choice.label)", "renderPlanIdea(byID('status-response-ideas-icon'), byID('status-response-ideas'), choice)", "byID('status-response-slot').textContent = formatSlot", "`Message from ${data.recipient_name}`", "byID('status-response-message').classList.toggle('hidden', !data.recipient_message)"} {
 		if !strings.Contains(clientText, marker) {
-			t.Fatalf("accepted vertical idea list is missing marker %q", marker)
+			t.Fatalf("accepted single idea display is missing marker %q", marker)
 		}
 	}
 	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "if (!previewMode) setupInitialNoButtonPosition()", "const farthestDistance = Math.max(...candidateTargets.map(distanceTo))", "const minimumTravel = Math.min(120, farthestDistance)", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "const movingTargets = candidateTargets.filter((target) => distanceTo(target) >= minimumTravel)", "const nonOverlappingTargets = movingTargets.filter((target) => !overlapsAccept(target))", "? safeTargets", ": (nonOverlappingTargets.length > 0 ? nonOverlappingTargets : movingTargets)", "noButton.style.left = `${current.left + window.scrollX}px`", "noButton.style.top = `${current.top + window.scrollY}px`", "noButton.style.transform = `translate3d(${target.x - current.left}px, ${target.y - current.top}px, 0)`", "function settleDodge(event)", "noButton.style.left = `${settled.left + window.scrollX}px`", "function pointHitsNoButton(x, y)", "const touchPadding = 18", "if (event.pointerType !== 'mouse') return", "document.addEventListener('touchstart'", "pointHitsNoButton(touch.clientX, touch.clientY)", "{ capture: true, passive: false }", "noButton.addEventListener('pointerdown'", "noButton.addEventListener('transitionend', settleDodge)", "noButton.style.transform = 'translate3d(0, 0, 0)'", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
