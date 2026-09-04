@@ -285,6 +285,18 @@ function appendOption(select, value, label) {
     select.appendChild(option);
 }
 
+function updateSlotControls() {
+    const rows = [...byID('slots-wrapper').querySelectorAll('.custom-slot-row')];
+    const canRemove = rows.length > 1;
+    rows.forEach((row, index) => {
+        const remove = row.querySelector('.remove-slot-btn');
+        row.classList.toggle('has-remove', canRemove);
+        remove.classList.toggle('hidden', !canRemove);
+        remove.setAttribute('aria-label', `Remove date and time option ${index + 1}`);
+    });
+    byID('add-slot-trigger').disabled = rows.length >= 5;
+}
+
 function createCustomPickerRow() {
     const slotsWrapper = byID('slots-wrapper');
     if (slotsWrapper.children.length >= 5) return;
@@ -307,9 +319,16 @@ function createCustomPickerRow() {
     syncTimes();
     const selectors = makeElement('div', 'slot-selectors');
     selectors.append(dateWrapper, timeWrapper);
-    row.appendChild(selectors);
+    const remove = makeElement('button', 'remove-slot-btn', '×');
+    remove.type = 'button';
+    remove.addEventListener('click', () => {
+        if (slotsWrapper.children.length <= 1) return;
+        row.remove();
+        updateSlotControls();
+    });
+    row.append(selectors, remove);
     slotsWrapper.appendChild(row);
-    byID('add-slot-trigger').disabled = slotsWrapper.children.length >= 5;
+    updateSlotControls();
 }
 
 function collectSlots() {

@@ -73,9 +73,20 @@ textarea { resize: vertical; min-height: 82px; cursor: text; line-height: 1.4; }
 input:focus, textarea:focus, select:focus { border-color: var(--primary); background-color: #fff; }
 .custom-slot-row {
     background: #fffbfe; border: 2px solid var(--accent); padding: 10px;
-    border-radius: 16px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;
+    border-radius: 16px; margin-bottom: 8px; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.7fr); gap: 8px; align-items: center;
 }
-.slot-selectors { display: flex; flex-direction: row; gap: 8px; width: 100%; }
+.slot-selectors { display: contents; }
+.custom-slot-row.has-remove { grid-template-columns: minmax(0, 1fr) 44px; }
+.custom-slot-row.has-remove .select-wrapper:first-child { grid-column: 1; }
+.custom-slot-row.has-remove .select-wrapper:nth-child(2) { grid-column: 1; grid-row: 2; }
+.remove-slot-btn {
+    width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px;
+    background: transparent; color: #b4233b; font-size: 1.15rem; cursor: pointer;
+}
+.custom-slot-row.has-remove .remove-slot-btn { grid-column: 2; grid-row: 1 / 3; }
+.remove-slot-btn:hover { background: var(--accent); }
+.remove-slot-btn:focus-visible { outline: 3px solid rgba(180, 35, 59, 0.25); outline-offset: 1px; }
 .add-slot-btn {
     background: transparent; color: var(--primary); border: none; font-size: 0.8rem;
     font-weight: 600; cursor: pointer; text-align: left; display: inline-block; padding: 4px;
@@ -414,6 +425,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 @media (min-width: 640px) {
     #recipient-card.accepted-state { max-width: 560px; padding: 3rem 3rem 2rem; }
+}
+@media (min-width: 480px) {
+    .custom-slot-row.has-remove { grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.7fr) 44px; }
+    .custom-slot-row.has-remove .select-wrapper:first-child,
+    .custom-slot-row.has-remove .select-wrapper:nth-child(2),
+    .custom-slot-row.has-remove .remove-slot-btn { grid-column: auto; grid-row: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
     .status-summary-pending::before { animation: none; }
