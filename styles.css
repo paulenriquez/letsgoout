@@ -217,9 +217,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     border-radius: 16px; word-break: break-all; font-size: 0.85rem;
     color: var(--text-main); margin-bottom: 1rem; user-select: all;
 }
+#share-instructions { margin-bottom: 1.4rem; }
 .private-link-heading {
     display: flex; flex-direction: column; align-items: center; gap: 0.65rem;
-    margin: 1rem 0 0.75rem;
+    margin: 1.5rem 0 0.75rem;
 }
 .private-link-heading .form-label { margin-bottom: 0; }
 .private-link-warning {
