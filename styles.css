@@ -178,7 +178,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     text-align: left;
 }
 .preview-toolbar p { margin-bottom: 0.6rem; }
-.preview-actions { display: flex; flex-direction: column; gap: 8px; }
+.preview-actions {
+    display: flex; flex-direction: column; gap: 12px; margin: 1rem 0 0.5rem;
+}
 .preview-actions .btn { width: 100%; margin: 0; }
 .preview-back-button { margin: 0; }
 .recipient-tagline {

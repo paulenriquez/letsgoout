@@ -932,6 +932,7 @@ function routeFromHash() {
 function setupNoButton() {
     const noButton = byID('no-btn');
     function dodge() {
+        if (previewMode) return;
         if (noButton.parentElement !== document.body) setupInitialNoButtonPosition();
         const current = noButton.getBoundingClientRect();
         noButton.classList.add('dodge-ready');
