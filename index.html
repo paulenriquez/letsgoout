@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=13">
-    <script src="/app.js?v=13" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=14">
+    <script src="/app.js?v=14" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -51,16 +51,19 @@
     <main class="card hidden" id="share-card">
         <div class="header-illustration">🔗</div>
         <h2>Links Generated!</h2>
-        <p>Send the invite link to them, and keep the status link private.</p>
+        <p id="share-instructions">Send the invite link to them, and then use the private status link to view their response.</p>
         <span class="form-label" id="share-invite-label">INVITE LINK - SEND THIS</span>
         <div class="link-box" id="generated-invite-url"></div>
         <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
-        <span class="form-label private-link-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)</span>
+        <div class="private-link-heading">
+            <span class="form-label" id="share-status-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE</span>
+            <span class="private-link-warning">🔒 Keep this private</span>
+        </div>
         <div class="link-box" id="generated-status-url"></div>
-        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Status Link 🔒</button>
+        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Private Status Link 🔒</button>
         <div class="share-tertiary-actions">
             <button class="btn btn-tertiary" id="preview-btn">Preview Invite 👀</button>
-            <button class="btn btn-tertiary" id="share-back-btn">Create new Invite</button>
+            <button class="btn btn-tertiary" id="share-back-btn">← Create New Invite</button>
         </div>
     </main>
 

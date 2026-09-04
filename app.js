@@ -369,7 +369,10 @@ async function createInvite() {
         const result = await postJSON('/api/invites', activeCreateRequest);
         if (!isCreateResponse(result)) throw new APIError(0, 'The server returned an invalid response.');
         activeInviteData = { ...activeInviteData, expires_at: result.expires_at };
-        byID('share-invite-label').textContent = `INVITE LINK - SEND THIS TO ${activeCreateRequest.recipient_name}`;
+        const recipientName = activeCreateRequest.recipient_name;
+        byID('share-instructions').textContent = `Send the invite link to ${recipientName}, and then use the private status link to view their response.`;
+        byID('share-invite-label').textContent = `INVITE LINK - SEND THIS TO ${recipientName}`;
+        byID('share-status-label').textContent = `PRIVATE STATUS LINK - VIEW RESPONSE FROM ${recipientName} HERE`;
         byID('generated-invite-url').textContent = result.invite_url;
         byID('generated-status-url').textContent = result.status_url;
         showScreen('share-card');
@@ -410,7 +413,9 @@ function startNewInvite() {
     recipientSelectedIdeas.clear();
     prepareNoButtonPosition();
 
+    byID('share-instructions').textContent = 'Send the invite link to them, and then use the private status link to view their response.';
     byID('share-invite-label').textContent = 'INVITE LINK - SEND THIS';
+    byID('share-status-label').textContent = 'PRIVATE STATUS LINK - VIEW RESPONSE HERE';
     byID('generated-invite-url').textContent = '';
     byID('generated-status-url').textContent = '';
     showError('create-error', '');
@@ -711,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('creator-preview-btn').addEventListener('click', previewDraft);
     byID('preview-generate-btn').addEventListener('click', createInvite);
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
-    byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Status Link 🔒'));
+    byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
     byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
     byID('share-back-btn').addEventListener('click', startNewInvite);
     byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));
