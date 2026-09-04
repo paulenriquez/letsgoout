@@ -785,6 +785,7 @@ function renderStatus(data) {
         byID('status-emoji').textContent = '💌';
         summary.textContent = 'Still waiting for a response.';
         summary.classList.add('status-summary-pending');
+        summary.classList.remove('status-summary-accepted');
         details.classList.add('hidden');
         byID('status-response-ideas-icon').textContent = '🚀';
         byID('status-response-ideas').replaceChildren();
@@ -797,8 +798,15 @@ function renderStatus(data) {
         byID('status-accepted').removeAttribute('datetime');
     } else {
         byID('status-emoji').textContent = '🎉✨';
-        summary.textContent = "It's a date! Here's the accepted plan:";
         summary.classList.remove('status-summary-pending');
+        summary.classList.add('status-summary-accepted');
+        const confirmation = makeElement('span', 'status-summary-confirmation');
+        const checkIcon = makeElement('img', 'status-summary-check');
+        checkIcon.src = '/check-circle.svg?v=1';
+        checkIcon.alt = '';
+        checkIcon.setAttribute('aria-hidden', 'true');
+        confirmation.append(checkIcon, makeElement('span', '', "It's a date!"));
+        summary.replaceChildren(confirmation, makeElement('span', 'status-summary-caption', "Here's the accepted plan"));
         const choice = selectedPlanIdea(data.selected_ideas, data.custom_ideas, data.custom_idea);
         renderPlanIdea(byID('status-response-ideas-icon'), byID('status-response-ideas'), choice);
         byID('status-response-slot').textContent = formatSlot(data.proposed_slots[data.selected_slot_index]);
@@ -887,6 +895,7 @@ async function deleteInvite() {
         byID('status-title').textContent = 'Invite Deleted';
         byID('status-summary').textContent = 'Both invitation links have been permanently deleted.';
         byID('status-summary').classList.remove('status-summary-pending');
+        byID('status-summary').classList.remove('status-summary-accepted');
         byID('status-details').classList.add('hidden');
         byID('status-invite-share').classList.add('hidden');
         byID('status-metadata').classList.add('hidden');
