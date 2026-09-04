@@ -218,13 +218,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     color: var(--text-main); margin-bottom: 1rem; user-select: all;
 }
 .private-link-heading {
-    display: flex; flex-direction: column; align-items: center; gap: 0.35rem; margin-top: 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.65rem;
+    margin: 1rem 0 0.75rem;
 }
 .private-link-heading .form-label { margin-bottom: 0; }
 .private-link-warning {
     display: inline-flex; align-items: center; gap: 0.3rem;
     color: var(--secondary-button-text); font-size: 0.76rem; font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
 }
 .private-link-warning-icon { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; }
 .copy-status-button { margin-top: 0; }
