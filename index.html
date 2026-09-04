@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=65">
-    <script src="/app.js?v=63" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=68">
+    <script src="/app.js?v=67" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -101,8 +101,7 @@
             </div>
         </div>
         <div class="header-illustration" id="recipient-emoji">✨</div>
-        <h2 id="recipient-title">Hey! 💕</h2>
-        <p class="recipient-tagline recipient-form-part" id="recipient-tagline">Let's go out? 😃</p>
+        <h2 id="recipient-title">Hey!</h2>
         <p class="hidden" id="recipient-subtitle"></p>
         <section class="accepted-plan hidden" id="accepted-plan" role="status" aria-live="polite" aria-atomic="true">
             <div class="accepted-plan-grid">
@@ -135,13 +134,13 @@
         <div class="ideas-grid recipient-form-part" id="recipient-ideas-grid"></div>
         <div class="form-group hidden recipient-form-part" id="other-input-container">
             <label for="other-freeform">What do you prefer instead? ✨</label>
-            <input type="text" id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?" aria-describedby="accept-error">
+            <input type="text" id="other-freeform" maxlength="120" placeholder="Suggest something else…" aria-describedby="accept-error">
         </div>
-        <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
+        <div class="selection-section-title recipient-form-part">2. Pick the Date &amp; Time</div>
         <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
         <div class="form-group recipient-form-part recipient-message-group">
             <label class="selection-section-title" for="recipient-message" id="recipient-message-label">3. Message (Optional)</label>
-            <textarea id="recipient-message" maxlength="280" rows="3" placeholder="Write something for the sender…"></textarea>
+            <textarea id="recipient-message" maxlength="280" rows="3" placeholder="Anything else you want the sender to know?"></textarea>
             <div class="character-count"><span id="recipient-message-count">0</span>/280</div>
         </div>
         <p class="form-error hidden" id="accept-error" role="alert"></p>

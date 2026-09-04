@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=63" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=65">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=67" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=68">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -667,7 +667,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`class="btn btn-tertiary" id="preview-btn"`,
 		`class="btn btn-tertiary" id="share-back-btn">← Create New Invite`,
 		`id="recipient-message-label">3. Message (Optional)`,
-		`id="recipient-message" maxlength="280"`,
+		`id="recipient-message" maxlength="280" rows="3" placeholder="Anything else you want the sender to know?"`,
 		`class="status-invite-share hidden" id="status-invite-share"`,
 		`id="status-invite-share-details"`,
 		`class="btn btn-secondary status-revisit-invite-button hidden" id="status-revisit-invite-btn">Revisit Invite Link 👀</button>`,
@@ -682,9 +682,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="status-invite-box" aria-label="Copy invite link"`,
 		`class="link-box-value" id="status-invite-url"`,
 		`id="status-copy-invite-btn">Copy Invite Link 📋`,
-		`id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?" aria-describedby="accept-error"`,
+		`id="other-freeform" maxlength="120" placeholder="Suggest something else…" aria-describedby="accept-error"`,
 		`id="yes-btn" disabled>Accept</button>`,
-		`id="recipient-tagline">Let's go out? 😃</p>`,
 		`id="status-accepted-row"`,
 		`id="status-expires-row"`,
 		`id="status-expires"`,
@@ -698,6 +697,9 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		if !strings.Contains(index.Body.String(), marker) {
 			t.Fatalf("generated links UI is missing marker %q", marker)
 		}
+	}
+	if strings.Contains(index.Body.String(), `id="recipient-tagline"`) {
+		t.Fatal("recipient invite still includes the removed tagline")
 	}
 	metadataIndex := strings.Index(index.Body.String(), `id="status-metadata"`)
 	deleteIndex := strings.Index(index.Body.String(), `id="status-delete-btn"`)
@@ -725,8 +727,34 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientText := string(client)
-	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "byID('recipient-subtitle').classList.toggle('hidden', !data.sender_message)") {
-		t.Fatal("client still depends on pronouns or does not treat the sender message as optional")
+	if strings.Contains(clientText, ".pronoun") {
+		t.Fatal("client still depends on pronouns")
+	}
+	for _, marker := range []string{
+		"byID('recipient-title').textContent = `Hey ${data.recipient_name}!`;",
+		`const senderMessage = data.sender_message || "Let's go out? Pick whatever sounds best, and I'll handle the rest! 💕";`,
+		"byID('recipient-subtitle').textContent = senderMessage;",
+		"byID('recipient-subtitle').classList.remove('hidden');",
+	} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("sender message fallback is missing marker %q", marker)
+		}
+	}
+	if strings.Contains(index.Body.String(), `id="recipient-title">Hey! 💕`) || strings.Contains(clientText, "`Hey ${data.recipient_name}! 💕`") {
+		t.Fatal("recipient greeting still includes the removed heart emoji")
+	}
+	if !strings.Contains(clientText, "`Anything else you want ${data.asker_name} to know?`") {
+		t.Fatal("recipient message placeholder does not include the sender name")
+	}
+	for _, marker := range []string{
+		"data.offered_ideas.filter((id) => id !== 'any').forEach((id) => appendIdea(ideaByID.get(id)))",
+		"data.custom_ideas.forEach(appendIdea)",
+		"if (data.offered_ideas.includes('any')) appendIdea(ideaByID.get('any'))",
+		"ideasGrid.appendChild(createIdeaCard(other, selectOther, !previewMode))",
+	} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("recipient idea ordering is missing marker %q", marker)
+		}
 	}
 	if strings.Contains(index.Body.String(), "status-refresh-btn") || strings.Contains(clientText, "status-refresh-btn") {
 		t.Fatal("private status page still has a manual refresh control")

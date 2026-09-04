@@ -195,10 +195,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .preview-actions .btn { width: 100%; margin: 0; }
 .preview-back-button { margin: 0; }
-.recipient-tagline {
-    color: var(--text-main); font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem;
-}
-#recipient-subtitle { white-space: pre-line; }
+#recipient-subtitle { color: var(--text-main); font-size: 1.05rem; line-height: 1.5; white-space: pre-line; }
 #recipient-card.preview-read-only .idea-card,
 #recipient-card.preview-read-only .select-item { cursor: default; }
 #recipient-card.preview-read-only .proposal-actions .btn { opacity: 0.6; cursor: default; }

@@ -553,11 +553,12 @@ function renderRecipientView(data, source = '') {
     byID('accepted-message-label').textContent = 'Your message';
     byID('accepted-message-text').textContent = '';
     byID('recipient-emoji').textContent = '✨';
-    byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
-    byID('recipient-subtitle').textContent = data.sender_message;
-    byID('recipient-subtitle').classList.toggle('hidden', !data.sender_message);
+    byID('recipient-title').textContent = `Hey ${data.recipient_name}!`;
+    const senderMessage = data.sender_message || "Let's go out? Pick whatever sounds best, and I'll handle the rest! 💕";
+    byID('recipient-subtitle').textContent = senderMessage;
+    byID('recipient-subtitle').classList.remove('hidden');
     byID('recipient-message-label').textContent = `3. Message for ${data.asker_name} (Optional)`;
-    byID('recipient-message').placeholder = `Write something for ${data.asker_name}…`;
+    byID('recipient-message').placeholder = `Anything else you want ${data.asker_name} to know?`;
     byID('recipient-message').value = '';
     byID('recipient-message').disabled = previewMode;
     byID('recipient-message-count').textContent = '0';
@@ -571,23 +572,17 @@ function renderRecipientView(data, source = '') {
 
     const ideasGrid = byID('recipient-ideas-grid');
     ideasGrid.replaceChildren();
-    data.offered_ideas.forEach((id) => {
-        const item = ideaByID.get(id);
-        const selectIdea = previewMode ? null : (card) => {
-            if (recipientSelectedIdeas.has(id)) recipientSelectedIdeas.delete(id); else recipientSelectedIdeas.add(id);
-            card.classList.toggle('selected', recipientSelectedIdeas.has(id));
-            updateAcceptButton();
-        };
-        ideasGrid.appendChild(createIdeaCard(item, selectIdea, !previewMode));
-    });
-    data.custom_ideas.forEach((item) => {
+    const appendIdea = (item) => {
         const selectIdea = previewMode ? null : (card) => {
             if (recipientSelectedIdeas.has(item.id)) recipientSelectedIdeas.delete(item.id); else recipientSelectedIdeas.add(item.id);
             card.classList.toggle('selected', recipientSelectedIdeas.has(item.id));
             updateAcceptButton();
         };
         ideasGrid.appendChild(createIdeaCard(item, selectIdea, !previewMode));
-    });
+    };
+    data.offered_ideas.filter((id) => id !== 'any').forEach((id) => appendIdea(ideaByID.get(id)));
+    data.custom_ideas.forEach(appendIdea);
+    if (data.offered_ideas.includes('any')) appendIdea(ideaByID.get('any'));
     const other = { id: 'other', label: 'Other...', emoji: '🤔' };
     const selectOther = previewMode ? null : (card) => {
         if (recipientSelectedIdeas.has('other')) recipientSelectedIdeas.delete('other'); else recipientSelectedIdeas.add('other');
