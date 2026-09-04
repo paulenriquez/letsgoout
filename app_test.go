@@ -633,7 +633,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
 		!strings.Contains(index.Body.String(), `<script src="/app.js?v=56" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=51">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=54">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -781,7 +781,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{"#recipient-card.accepted-state", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 1.15rem 0 0; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}

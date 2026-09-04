@@ -272,10 +272,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .accepted-note {
-    display: inline-flex; align-items: center; justify-content: center; margin: 1.75rem 0 0;
+    display: inline-flex; align-items: center; justify-content: center; margin: 0.75rem 0 0;
     color: #9f3f57; font-size: 1.1rem; font-weight: 400; line-height: 1.4;
 }
-.accepted-replay-button { margin: 1.15rem 0 0; }
+.accepted-replay-button { margin: 2rem 0 0; }
 .proposal-actions {
     display: flex; gap: 12px; justify-content: center; align-items: center;
     margin-top: 1.5rem; min-height: 50px; width: 100%;
