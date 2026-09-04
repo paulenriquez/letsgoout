@@ -313,8 +313,16 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	}
 	var invite map[string]any
 	decodeResponse(t, view, &invite)
+	if invite["status"] != "pending" {
+		t.Fatalf("new invite status = %#v", invite["status"])
+	}
 	if _, leaked := invite["status_token"]; leaked {
 		t.Fatal("recipient response leaked status token")
+	}
+	for _, field := range []string{"selected_ideas", "custom_idea", "selected_slot_index", "recipient_message"} {
+		if _, present := invite[field]; present {
+			t.Fatalf("pending recipient response contains accepted field %q", field)
+		}
 	}
 	if _, present := invite["pronoun"]; present {
 		t.Fatal("recipient response contains removed pronoun field")
@@ -345,6 +353,29 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	acceptedExpiry, _ := time.Parse(time.RFC3339, acceptedResult.ExpiresAt)
 	if !acceptedExpiry.Equal(now.Add(initialLifetime + extendedLifetime)) {
 		t.Fatalf("accepted expiry = %v", acceptedExpiry)
+	}
+	acceptedView := request(t, handler, http.MethodPost, "/api/invites/view", tokenRequest{Token: inviteToken})
+	if acceptedView.Code != http.StatusOK {
+		t.Fatalf("accepted invite view = %d: %s", acceptedView.Code, acceptedView.Body.String())
+	}
+	var acceptedInvite struct {
+		Status            string   `json:"status"`
+		SelectedIdeas     []string `json:"selected_ideas"`
+		CustomIdea        string   `json:"custom_idea"`
+		SelectedSlotIndex int      `json:"selected_slot_index"`
+		RecipientMessage  string   `json:"recipient_message"`
+	}
+	decodeResponse(t, acceptedView, &acceptedInvite)
+	if acceptedInvite.Status != "accepted" || len(acceptedInvite.SelectedIdeas) != 2 || acceptedInvite.CustomIdea != "Arcade" ||
+		acceptedInvite.SelectedSlotIndex != index || acceptedInvite.RecipientMessage != strings.TrimSpace(recipientMessage) {
+		t.Fatalf("bad accepted recipient view: %+v", acceptedInvite)
+	}
+	var acceptedPayload map[string]any
+	decodeResponse(t, acceptedView, &acceptedPayload)
+	for _, field := range []string{"status_token", "status_url", "accepted_at"} {
+		if _, leaked := acceptedPayload[field]; leaked {
+			t.Fatalf("accepted recipient response leaked private field %q", field)
+		}
 	}
 
 	duplicate := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee"}, SelectedSlotIndex: &index})
@@ -588,8 +619,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=19" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=19">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=20" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=20">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -649,7 +680,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"ideaEmoji(id, currentInvite.custom_ideas)", "...(customIdea ? ['🤔'] : [])", "...(customIdea ? [customIdea] : [])", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)"} {
+	for _, marker := range []string{"ideaEmoji(id, currentInvite.custom_ideas)", "...(customIdea ? ['🤔'] : [])", "...(customIdea ? [customIdea] : [])", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)", "renderAcceptedResponse(data)", "if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
 		}

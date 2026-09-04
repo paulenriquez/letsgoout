@@ -256,12 +256,25 @@ func (a *app) handleInviteView(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
+		"status":     "pending",
 		"asker_name": record.AskerName, "recipient_name": record.RecipientName,
 		"offered_ideas": record.OfferedIdeas, "custom_ideas": record.CustomIdeas,
 		"sender_message": record.SenderMessage, "proposed_slots": record.ProposedSlots,
 		"expires_at": record.ExpiresAt.Format(time.RFC3339),
-	})
+	}
+	if record.AcceptedAt != nil {
+		if record.SelectedSlotIndex == nil {
+			writeNotFound(w)
+			return
+		}
+		response["status"] = "accepted"
+		response["selected_ideas"] = record.SelectedIdeas
+		response["custom_idea"] = record.CustomIdea
+		response["selected_slot_index"] = *record.SelectedSlotIndex
+		response["recipient_message"] = record.RecipientMessage
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (a *app) handleAccept(w http.ResponseWriter, r *http.Request) {

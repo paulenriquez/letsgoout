@@ -106,13 +106,21 @@ function isCustomIdea(item, requireID) {
 }
 
 function isInviteResponse(data) {
-    return data && typeof data.asker_name === 'string' && typeof data.recipient_name === 'string' &&
-        isStringArray(data.offered_ideas, 0, 9) && data.offered_ideas.every((id) => ideaByID.has(id)) &&
-        Array.isArray(data.custom_ideas) && data.custom_ideas.every((item) => isCustomIdea(item, true)) &&
-        data.offered_ideas.length + data.custom_ideas.length > 0 && typeof data.sender_message === 'string' &&
-        [...data.sender_message].length <= 280 &&
-        isStringArray(data.proposed_slots, 1, 5) &&
-        data.proposed_slots.every((slot) => !Number.isNaN(Date.parse(slot))) && typeof data.expires_at === 'string';
+    if (!data || !['pending', 'accepted'].includes(data.status) || typeof data.asker_name !== 'string' || typeof data.recipient_name !== 'string' ||
+        !isStringArray(data.offered_ideas, 0, 9) || !data.offered_ideas.every((id) => ideaByID.has(id)) ||
+        !Array.isArray(data.custom_ideas) || !data.custom_ideas.every((item) => isCustomIdea(item, true)) ||
+        data.offered_ideas.length + data.custom_ideas.length === 0 || typeof data.sender_message !== 'string' ||
+        [...data.sender_message].length > 280 || !isStringArray(data.proposed_slots, 1, 5) ||
+        !data.proposed_slots.every((slot) => !Number.isNaN(Date.parse(slot))) || typeof data.expires_at !== 'string') return false;
+    if (data.status === 'pending') return true;
+    const customIDs = new Set(data.custom_ideas.map((item) => item.id));
+    return Array.isArray(data.selected_ideas) &&
+        data.selected_ideas.every((id) => ideaByID.has(id) || customIDs.has(id)) &&
+        typeof data.custom_idea === 'string' && [...data.custom_idea].length <= 120 &&
+        (data.selected_ideas.length > 0 || data.custom_idea.length > 0) &&
+        typeof data.recipient_message === 'string' && [...data.recipient_message].length <= 280 &&
+        Number.isInteger(data.selected_slot_index) && data.selected_slot_index >= 0 &&
+        data.selected_slot_index < data.proposed_slots.length;
 }
 
 function isCreateResponse(data) {
@@ -563,7 +571,13 @@ function renderRecipientView(data, source = '') {
 }
 
 function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, recipientMessage) {
-    byID('recipient-card').classList.add('accepted-state');
+    const recipientCard = byID('recipient-card');
+    previewMode = false;
+    previewSource = '';
+    recipientCard.classList.remove('preview-read-only');
+    recipientCard.classList.add('accepted-state');
+    byID('preview-toolbar').classList.add('hidden');
+    prepareNoButtonPosition();
     byID('recipient-emoji').textContent = '🎉✨';
     byID('recipient-title').textContent = "It's a date!!";
     byID('recipient-subtitle').textContent = 'The plan is officially locked in 💕';
@@ -576,8 +590,15 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     byID('accepted-plan').classList.remove('hidden');
     document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.add('hidden'));
     showError('accept-error', '');
-    window.scrollTo(0, 0);
+    showScreen('recipient-card');
     startCelebration();
+}
+
+function renderAcceptedResponse(data) {
+    currentInvite = data;
+    const labels = data.selected_ideas.map((id) => ideaLabel(id, data.custom_ideas));
+    const emojis = data.selected_ideas.map((id) => ideaEmoji(id, data.custom_ideas));
+    renderAccepted(labels, emojis, data.custom_idea, formatSlot(data.proposed_slots[data.selected_slot_index]), data.recipient_message);
 }
 
 async function acceptInvite() {
@@ -694,7 +715,7 @@ async function loadInvite(token) {
     try {
         const data = await postJSON('/api/invites/view', { token });
         if (!isInviteResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
-        renderRecipientView(data);
+        if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data);
     } catch (error) {
         byID('unavailable-card').querySelector('p').textContent = error.status === 404
             ? 'This invite link does not exist, has expired, or was deleted.'
