@@ -222,10 +222,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .private-link-heading .form-label { margin-bottom: 0; }
 .private-link-warning {
-    display: inline-flex; align-items: center; padding: 0.3rem 0.65rem;
-    border: 1px solid #e1a2ad; border-radius: 999px; background: #fff0f3;
-    color: #8f2943; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    color: var(--secondary-button-text); font-size: 0.76rem; font-weight: 600;
+    letter-spacing: 0.02em;
 }
+.private-link-warning-icon { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; }
 .copy-status-button { margin-top: 0; }
 .share-tertiary-actions {
     display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;
