@@ -4,416 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Let's Go Out! ✨</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
-
-    <!-- PWA -->
-    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css?v=7">
+    <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#ff758f">
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Let's Go Out">
-
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <style>
-        :root {
-            --bg-main: #fff0f3;
-            --surface: #ffffff;
-            --text-main: #5c4347;
-            --text-muted: #a3858a;
-            --primary: #ff758f; 
-            --primary-hover: #ff4d6d;
-            --accent: #fff0f3;
-            --border: #fecdd3;
-            --radius: 24px; 
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Fredoka', -apple-system, sans-serif;
-        }
-
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh; 
-            background: linear-gradient(135deg, #fff5f7 0%, #ffe4e9 100%);
-            color: var(--text-main);
-            padding: 20px 10px; 
-            overflow-y: auto; 
-        }
-
-        .landing-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            background: linear-gradient(135deg, #fff5f7 0%, #ffe4e9 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 24px;
-            text-align: center;
-            z-index: 100;
-        }
-
-        .landing-screen h1 {
-            font-size: 3.5rem;
-            color: var(--primary);
-            margin-bottom: 1rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-        }
-
-        .landing-screen p {
-            font-size: 1.25rem;
-            color: var(--text-main);
-            max-width: 480px;
-            margin-bottom: 2.5rem;
-            line-height: 1.5;
-        }
-
-        .card {
-            background: var(--surface);
-            padding: 2rem 1.5rem; 
-            border-radius: var(--radius);
-            border: 4px solid var(--border);
-            box-shadow: 0 10px 25px rgba(255, 154, 172, 0.15);
-            max-width: 420px; 
-            width: 100%;      
-            text-align: center;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            margin: auto;
-        }
-
-        h2 {
-            font-size: 1.6rem; 
-            color: var(--primary);
-            margin-bottom: 0.2rem;
-            font-weight: 600;
-        }
-
-        p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-bottom: 1rem; 
-        }
-
-        .form-group {
-            margin-bottom: 1rem; 
-            text-align: left;
-        }
-
-        label {
-            display: block;
-            font-size: 0.8rem; 
-            font-weight: 600;
-            color: var(--primary);
-            margin-bottom: 0.4rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        input[type="text"], select {
-            width: 100%;
-            padding: 0.75rem 0.85rem; 
-            padding-right: 1.8rem; 
-            border: 2px solid var(--accent);
-            border-radius: 16px;
-            font-size: 0.9rem; 
-            outline: none;
-            transition: all 0.2s ease;
-            background-color: #fffbfe;
-            color: var(--text-main);
-            appearance: none; 
-            cursor: pointer;
-        }
-
-        .select-wrapper {
-            position: relative;
-            width: 100%;
-        }
-        .select-wrapper::after {
-            content: '▼';
-            font-size: 0.6rem;
-            color: var(--primary);
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--primary);
-            background-color: #fff;
-        }
-
-        .custom-slot-row {
-            background: #fffbfe;
-            border: 2px solid var(--accent);
-            padding: 10px; 
-            border-radius: 16px;
-            margin-bottom: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .slot-selectors {
-            display: flex;
-            flex-direction: row; 
-            gap: 8px;
-            width: 100%;
-        }
-
-        .add-slot-btn {
-            background: transparent;
-            color: var(--primary);
-            border: none;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: left;
-            display: inline-block;
-            padding: 4px;
-        }
-
-        .ideas-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px; 
-            margin-bottom: 0.5rem;
-        }
-
-        .idea-card {
-            border: 2px solid var(--accent);
-            border-radius: 16px;
-            padding: 10px 4px; 
-            text-align: center;
-            cursor: pointer;
-            background: #fffbfe;
-            transition: all 0.2s;
-            user-select: none;
-            position: relative;
-        }
-
-        .emoji-icon {
-            font-size: 2rem; 
-            margin-bottom: 4px;
-            display: block;
-        }
-
-        .idea-card span {
-            font-size: 0.7rem; 
-            font-weight: 600;
-            display: block;
-            color: var(--text-main);
-        }
-
-        .idea-card.selected {
-            background-color: #ffe5ec;
-            border-color: var(--primary);
-            transform: scale(1.03);
-        }
-
-        .idea-card .badge-check {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            font-size: 0.65rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .idea-card.selected .badge-check { opacity: 1; }
-
-        .selection-section-title {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin: 1rem 0 0.5rem 0;
-            text-align: left;
-            text-transform: uppercase;
-        }
-
-        .selection-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            text-align: left;
-            margin-bottom: 0.5rem;
-        }
-
-        .select-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            border: 2px solid var(--accent);
-            border-radius: 16px;
-            cursor: pointer;
-            background: #fffbfe;
-        }
-        .select-item.selected {
-            border-color: var(--primary);
-            background-color: #ffe5ec;
-        }
-        .select-item input[type="radio"] { transform: scale(1.2); }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn {
-            padding: 0.85rem;
-            font-size: 1.05rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .btn-primary {
-            width: 100%;
-            background-color: var(--primary);
-            color: white;
-            box-shadow: 0 6px 0px #e63956;
-            margin-bottom: 8px;
-        }
-        .btn-primary:active { transform: translateY(4px); box-shadow: 0 2px 0px #e63956; }
-
-        .btn-secondary {
-            background-color: #fffbfe;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-            margin-top: 10px;
-        }
-
-        .proposal-actions {
-            display: flex;
-            gap: 12px; 
-            justify-content: center;
-            align-items: center;
-            margin-top: 1.5rem;
-            min-height: 50px;
-            width: 100%;
-        }
-
-        #yes-btn {
-            background-color: var(--primary);
-            color: white;
-            box-shadow: 0 5px 0px #e63956;
-            width: 150px; 
-            height: 50px; 
-        }
-        #yes-btn:active { transform: translateY(3px); box-shadow: 0 2px 0px #e63956; }
-
-        .no-btn-wrapper {
-            width: 130px; 
-            height: 50px;
-            position: relative;
-        }
-
-        #no-btn {
-            background-color: #fbf8f9;
-            color: #927e83;
-            border: 2px solid #e1d3d6;
-            border-radius: 50px;
-            width: 130px; 
-            height: 50px;
-            position: absolute;
-            left: 0;
-            top: 0;
-            transition: left 0.75s cubic-bezier(0.16, 1, 0.3, 1), top 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .link-box {
-            background: #fffbfe;
-            border: 2px dashed var(--primary);
-            padding: 15px;
-            border-radius: 16px;
-            word-break: break-all;
-            font-size: 0.85rem;
-            color: var(--text-main);
-            margin-bottom: 1rem;
-            user-select: all;
-        }
-
-        .hidden { display: none !important; }
-
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(92, 67, 71, 0.45);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            z-index: 200;
-        }
-        .install-modal { max-width: 360px; }
-        .install-app-icon {
-            width: 76px;
-            height: 76px;
-            border-radius: 18px;
-            margin: 0 auto 0.7rem;
-            box-shadow: 0 8px 18px rgba(255, 77, 109, 0.35);
-        }
-        #install-modal-text { font-size: 0.95rem; line-height: 1.5; }
-        
-        .header-illustration {
-            font-size: 3rem;
-            margin-bottom: 0.2rem;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        .deployment-meta {
-            margin-top: 1rem;
-            font-size: 0.65rem;
-            color: #c9afb3;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-            100% { transform: translateY(0px); }
-        }
-    </style>
+    <script src="/app.js?v=7" defer></script>
 </head>
 <body>
-
-    <!-- PHASE 0: REBRANDED HERO LANDING SCREEN -->
-    <div class="landing-screen" id="landing-page">
+    <div class="landing-screen hidden" id="landing-page">
         <div class="header-illustration">💌</div>
         <h1>Let's go out!</h1>
         <p>The perfect way to ask them out. <br>Design a personalized date invite in seconds.</p>
-        <button class="btn btn-primary" id="start-btn" style="max-width: 260px;">Ask Someone Out ✨</button>
+        <button class="btn btn-primary start-button" id="start-btn">Ask Someone Out ✨</button>
     </div>
 
-    <!-- PWA INSTALL PROMPT (landing only, one-time, dismissible) -->
     <div class="modal-overlay hidden" id="install-modal-overlay">
         <div class="card install-modal">
-            <img src="./icon-192.png" alt="Let's Go Out app icon" class="install-app-icon">
+            <img src="/icon-192.png" alt="Let's Go Out app icon" class="install-app-icon">
             <h2 id="install-modal-title">Add to Home Screen</h2>
             <p id="install-modal-text">Install Let's Go Out for one-tap access — it opens fullscreen, just like a real app! ✨</p>
             <button class="btn btn-primary" id="install-accept-btn">Install ✨</button>
@@ -421,28 +32,20 @@
         </div>
     </div>
 
-    <!-- PHASE 1: ASKER CREATOR APP -->
-    <div class="card hidden" id="asker-card">
+    <main class="card hidden" id="asker-card">
         <h2>Create Invite ✨</h2>
         <p>Set up your perfect date package!</p>
-
         <div class="form-group">
-            <label>Your Name</label>
-            <input type="text" id="asker-name" placeholder="Alex">
+            <label for="asker-name">Your Name</label>
+            <input type="text" id="asker-name" maxlength="60" placeholder="Alex" autocomplete="name">
         </div>
-
-        <div class="form-group">
-            <label>Your Email (we'll notify you of their answer)</label>
-            <input type="text" id="asker-email" placeholder="you@email.com">
-        </div>
-
         <div class="slot-selectors">
-            <div class="form-group" style="width: 50%;">
-                <label>Their Name</label>
-                <input type="text" id="recipient-name" placeholder="Taylor">
+            <div class="form-group half-width">
+                <label for="recipient-name">Their Name</label>
+                <input type="text" id="recipient-name" maxlength="60" placeholder="Taylor" autocomplete="off">
             </div>
-            <div class="form-group" style="width: 50%;">
-                <label>Their Pronouns</label>
+            <div class="form-group half-width">
+                <label for="recipient-pronoun">Their Pronouns</label>
                 <div class="select-wrapper">
                     <select id="recipient-pronoun">
                         <option value="her">She/Her</option>
@@ -452,572 +55,69 @@
                 </div>
             </div>
         </div>
-
         <div class="form-group">
-            <label>Date Ideas (Pick Multiple)</label>
+            <span class="form-label">Date Ideas (Pick Multiple)</span>
             <div class="ideas-grid" id="ideas-wrapper"></div>
         </div>
-
         <div class="form-group">
-            <label>Propose Date & Time Options ⏰</label>
+            <span class="form-label">Propose Date &amp; Time Options ⏰</span>
             <div class="slots-container" id="slots-wrapper"></div>
             <button class="add-slot-btn" id="add-slot-trigger">+ Add Another Date Option</button>
         </div>
+        <p class="form-error hidden" id="create-error" role="alert"></p>
+        <button class="btn btn-primary" id="generate-btn">Generate Invite Links 🔗</button>
+    </main>
 
-        <button class="btn btn-primary" id="generate-btn">Generate Invite Link 🔗</button>
-    </div>
-
-    <!-- PHASE 1.5: SHARE LINK PAGE -->
-    <div class="card hidden" id="share-card">
+    <main class="card hidden" id="share-card">
         <div class="header-illustration">🔗</div>
-        <h2>Link Generated!</h2>
-        <p>Send this unique link to them. When they open it, they'll see your personalized invite.</p>
-        
-        <div class="link-box" id="generated-url"></div>
-        
-        <button class="btn btn-primary" id="copy-btn">Copy Link 📋</button>
+        <h2>Links Generated!</h2>
+        <p>Send the invite link to them, and keep the status link private.</p>
+        <span class="form-label">Invite link — send this</span>
+        <div class="link-box" id="generated-invite-url"></div>
+        <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
+        <span class="form-label private-link-label">Private status link — keep this private</span>
+        <div class="link-box" id="generated-status-url"></div>
+        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Status Link 🔒</button>
         <button class="btn btn-secondary" id="preview-btn">Preview Invite 👀</button>
         <button class="btn btn-secondary" id="share-back-btn">← Back to Create Invite</button>
-    </div>
+    </main>
 
-    <!-- PHASE 2: RECIPIENT INTERACTIVE APP -->
-    <div class="card hidden" id="recipient-card">
-        <button class="btn btn-secondary hidden" id="preview-back-btn" style="margin-top:0; margin-bottom:1rem;">← Back to Link</button>
+    <main class="card hidden" id="recipient-card">
+        <button class="btn btn-secondary hidden preview-back-button" id="preview-back-btn">← Back to Links</button>
         <div class="header-illustration" id="recipient-emoji">✨</div>
         <h2 id="recipient-title">Hey! 💕</h2>
         <p id="recipient-subtitle">Pick your preferences:</p>
-
-        <div class="selection-section-title">1. Pick the Vibe</div>
-        <div class="ideas-grid" id="recipient-ideas-grid"></div>
-
-        <div class="selection-section-title">2. Pick the Time</div>
-        <div class="selection-list" id="slots-selector-container"></div>
-
-        <div class="form-group hidden" id="other-input-container">
-            <label>What do you prefer instead? ✨</label>
-            <input type="text" id="other-freeform" placeholder="e.g., Arcade & bubble tea?">
+        <div class="selection-section-title recipient-form-part">1. Pick the Vibe</div>
+        <div class="ideas-grid recipient-form-part" id="recipient-ideas-grid"></div>
+        <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
+        <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
+        <div class="form-group hidden recipient-form-part" id="other-input-container">
+            <label for="other-freeform">What do you prefer instead? ✨</label>
+            <input type="text" id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?">
         </div>
-
-        <div class="proposal-actions" id="action-wrapper">
-            <button class="btn" id="yes-btn">Yes</button>
-            <div class="no-btn-wrapper">
-                <button class="btn" id="no-btn">Decline</button>
-            </div>
+        <p class="form-error hidden" id="accept-error" role="alert"></p>
+        <div class="proposal-actions recipient-form-part" id="action-wrapper">
+            <button class="btn" id="yes-btn" disabled>Yes</button>
+            <div class="no-btn-wrapper"><button class="btn" id="no-btn">Decline</button></div>
         </div>
-    </div>
+    </main>
 
-    <script>
-        // ⚙️ EMAILJS CONFIG — paste your 3 values from emailjs.com here (see setup notes).
-        const EMAILJS_CONFIG = {
-            PUBLIC_KEY:  'KYL3gbNshdPYw9I0G',
-            SERVICE_ID:  'service_e3e63jl',
-            TEMPLATE_ID: 'template_7kojz6j'
-        };
+    <main class="card hidden" id="status-card">
+        <div class="header-illustration" id="status-emoji">💌</div>
+        <h2 id="status-title">Invite Status</h2>
+        <p id="status-summary">Checking your invitation…</p>
+        <div class="status-details hidden" id="status-details"></div>
+        <p class="status-updated" id="status-updated"></p>
+        <p class="form-error hidden" id="status-error" role="alert"></p>
+        <button class="btn btn-primary" id="status-refresh-btn">Refresh Status ↻</button>
+        <button class="btn btn-secondary danger-button" id="status-delete-btn">Permanently Delete Invite</button>
+    </main>
 
-        // ⚙️ JSONBIN CONFIG — paste an Access Key (scoped to Bin Create + Read) from jsonbin.io.
-        const JSONBIN_CONFIG = {
-            ACCESS_KEY: '$2a$10$OpvgE001Z.7YoIR1QxAiquWQJnncryFeN9U3nsNyu4IRFawJmPVH.'
-        };
-
-        // Initialize EmailJS (safe to call even before keys are filled in).
-        if (window.emailjs && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
-            emailjs.init({ publicKey: EMAILJS_CONFIG.PUBLIC_KEY });
-        }
-
-        // Last deployment time — from the Last-Modified header GitHub Pages serves for index.html.
-        console.log('🚀 Last deployed:', document.lastModified);
-
-        // Register the service worker (enables install + offline shell).
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
-                    .catch((err) => console.error('Service worker registration failed:', err));
-            });
-        }
-
-        // ---- PWA install prompt (landing only, one-time, dismissible) ----
-        (function setupInstallPrompt() {
-            const overlay = document.getElementById('install-modal-overlay');
-            const acceptBtn = document.getElementById('install-accept-btn');
-            const dismissBtn = document.getElementById('install-dismiss-btn');
-            const modalTitle = document.getElementById('install-modal-title');
-            const modalText = document.getElementById('install-modal-text');
-            let deferredPrompt = null;
-
-            // The real iOS "Share" glyph, inline so the instructions are unmistakable.
-            const SHARE_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-5px;margin:0 2px;"><path d="M12 4v11"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M9 10H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/></svg>';
-
-            const ua = navigator.userAgent || '';
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-            const isIOS = /iphone|ipad|ipod/i.test(ua) ||
-                          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            // In-app browsers (Instagram, Messenger, FB, etc.) can't Add to Home Screen.
-            const isInApp = /Instagram|FBAN|FBAV|FB_IAB|Messenger|Line\/|Twitter|TikTok|Snapchat|WhatsApp/i.test(ua);
-            const onInvitePage = new URLSearchParams(window.location.search).has('id');
-            const dismissed = localStorage.getItem('installPromptDismissed') === '1';
-
-            // Never interrupt a recipient, an installed user, or someone who said "maybe later".
-            const eligible = !isStandalone && !onInvitePage && !dismissed;
-
-            function showModal() { if (eligible) overlay.classList.remove('hidden'); }
-
-            if (eligible) {
-                if (isInApp) {
-                    // Can't install inside an in-app browser — guide them to open in the real browser first.
-                    modalTitle.innerText = 'Open in your browser';
-                    modalText.innerHTML = 'To save this app, tap the <strong>•••</strong> menu and choose <strong>“Open in Browser”</strong> first 💕';
-                    acceptBtn.classList.add('hidden');
-                    setTimeout(showModal, 1800);
-                } else if (isIOS) {
-                    // iOS can't trigger install programmatically — and only Safari can Add to Home Screen.
-                    const isIOSSafari = !/CriOS|FxiOS|EdgiOS/i.test(ua);
-                    if (isIOSSafari) {
-                        modalText.innerHTML = 'Tap ' + SHARE_ICON + ' below, then choose <strong>“Add to Home Screen”</strong> 💕';
-                    } else {
-                        modalTitle.innerText = 'Open in Safari';
-                        modalText.innerHTML = 'On iPhone, apps can only be saved from <strong>Safari</strong>. Open this page there, then tap ' + SHARE_ICON + ' → <strong>“Add to Home Screen”</strong> 💕';
-                    }
-                    acceptBtn.classList.add('hidden');
-                    setTimeout(showModal, 1500);
-                } else {
-                    // Chrome/Edge/Android: capture the native prompt, then offer it via our button.
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        e.preventDefault();
-                        deferredPrompt = e;
-                        showModal();
-                    });
-                }
-            }
-
-            acceptBtn.addEventListener('click', async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    await deferredPrompt.userChoice;
-                    deferredPrompt = null;
-                }
-                overlay.classList.add('hidden');
-            });
-
-            dismissBtn.addEventListener('click', () => {
-                localStorage.setItem('installPromptDismissed', '1');
-                overlay.classList.add('hidden');
-            });
-
-            window.addEventListener('appinstalled', () => overlay.classList.add('hidden'));
-        })();
-
-        const dateCatalog = [
-            { id: 'pizza', label: 'Pizza', emoji: '🍕' },
-            { id: 'ramen', label: 'Ramen', emoji: '🍜' }, 
-            { id: 'coffee', label: 'Coffee', emoji: '☕' },
-            { id: 'drinks', label: 'Drinks', emoji: '🥂' }, 
-            { id: 'steak', label: 'Steak', emoji: '🥩' },  
-            { id: 'gym', label: 'Gym', emoji: '🏋️' },
-            { id: 'walk', label: 'Walk', emoji: '👟' },
-            { id: 'run', label: 'Run', emoji: '🏃' },
-            { id: 'any', label: 'Surprise Me!', emoji: '🎁' } 
-        ];
-
-        window.onload = async () => {
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('id')) {
-                // Short link: fetch the invite from jsonbin by its bin ID.
-                try {
-                    const binId = params.get('id');
-                    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
-                    const json = await res.json();
-                    if (!res.ok || !json.record) throw new Error('Bin not found');
-                    renderRecipientView(json.record);
-                } catch (e) {
-                    console.error("Couldn't load invite:", e);
-                    document.getElementById('landing-page').classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('landing-page').classList.remove('hidden');
-            }
-        };
-
-        document.getElementById('start-btn').addEventListener('click', () => {
-            document.getElementById('landing-page').classList.add('hidden');
-            document.getElementById('asker-card').classList.remove('hidden');
-        });
-
-        const selectedIdeas = new Set();
-        const wrapper = document.getElementById('ideas-wrapper');
-
-        dateCatalog.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'idea-card';
-            el.innerHTML = `<div class="emoji-icon">${item.emoji}</div><span>${item.label}</span>`;
-            el.addEventListener('click', () => {
-                if(selectedIdeas.has(item.id)) {
-                    selectedIdeas.delete(item.id);
-                    el.classList.remove('selected');
-                } else {
-                    selectedIdeas.add(item.id);
-                    el.classList.add('selected');
-                }
-            });
-            wrapper.appendChild(el);
-        });
-
-        // 🛠️ BULLETPROOF DATE & TIME SLOTS ENGINE
-        function formatTimeLabel(hour, minute) {
-            let ampm = hour >= 12 ? 'PM' : 'AM';
-            let displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-            let displayMinute = minute === 0 ? '00' : '30';
-            return `${displayHour}:${displayMinute} ${ampm}`;
-        }
-
-        function buildDateTimeData() {
-            let dataset = [];
-            let now = new Date();
-            
-            for (let i = 0; i < 7; i++) {
-                let targetDate = new Date();
-                targetDate.setDate(targetDate.getDate() + i);
-                
-                let availableTimes = [];
-                
-                // Loops through 8:00 AM to 10:30 PM slots
-                for (let hour = 8; hour <= 22; hour++) {
-                    [0, 30].forEach(minute => {
-                        let slotTimestamp = new Date(targetDate);
-                        slotTimestamp.setHours(hour, minute, 0, 0);
-                        
-                        // Strict filter rule: only keep if the slot is ahead of right now
-                        if (slotTimestamp > now) {
-                            availableTimes.push(formatTimeLabel(hour, minute));
-                        }
-                    });
-                }
-                
-                // Only include the day if it has valid times left
-                if (availableTimes.length > 0) {
-                    let label = targetDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-                    if (i === 0) label = "Today (" + label + ")";
-                    if (i === 1) label = "Tomorrow (" + label + ")";
-                    dataset.push({ dateLabel: label, times: availableTimes });
-                }
-            }
-            return dataset;
-        }
-
-        const slotsWrapper = document.getElementById('slots-wrapper');
-        
-        function createCustomPickerRow() {
-            const dateTimeData = buildDateTimeData();
-            if (dateTimeData.length === 0) return; // Ultimate fallback layer
-
-            const row = document.createElement('div');
-            row.className = 'custom-slot-row';
-            
-            const dateWrapper = document.createElement('div');
-            dateWrapper.className = 'select-wrapper';
-            const dateSelect = document.createElement('select');
-            dateSelect.className = 'slot-date-select';
-            
-            dateTimeData.forEach(item => {
-                dateSelect.innerHTML += `<option value="${item.dateLabel}">${item.dateLabel}</option>`;
-            });
-            dateWrapper.appendChild(dateSelect);
-
-            const timeWrapper = document.createElement('div');
-            timeWrapper.className = 'select-wrapper';
-            const timeSelect = document.createElement('select');
-            timeSelect.className = 'slot-time-select';
-            timeWrapper.appendChild(timeSelect);
-
-            // Re-render time options instantly whenever the day switches
-            function syncDropdownTimes() {
-                const match = dateTimeData.find(x => x.dateLabel === dateSelect.value);
-                timeSelect.innerHTML = '';
-                if (match) {
-                    match.times.forEach(t => {
-                        timeSelect.innerHTML += `<option value="${t}">${t}</option>`;
-                    });
-                }
-            }
-
-            dateSelect.addEventListener('change', syncDropdownTimes);
-            syncDropdownTimes(); // Execute load build filter initialization
-
-            const structure = document.createElement('div');
-            structure.className = 'slot-selectors';
-            structure.appendChild(dateWrapper);
-            structure.appendChild(timeWrapper);
-            
-            row.appendChild(structure);
-            slotsWrapper.appendChild(row);
-        }
-
-        // Initialize first slot automatically
-        createCustomPickerRow();
-        document.getElementById('add-slot-trigger').addEventListener('click', createCustomPickerRow);
-
-        let activeInviteData = null;
-
-        document.getElementById('generate-btn').addEventListener('click', async () => {
-            const asker = document.getElementById('asker-name').value || "Alex";
-            const askerEmail = document.getElementById('asker-email').value || "";
-            const recipient = document.getElementById('recipient-name').value || "Taylor";
-            const pronoun = document.getElementById('recipient-pronoun').value;
-            
-            const dateSelects = document.querySelectorAll('.slot-date-select');
-            const timeSelects = document.querySelectorAll('.slot-time-select');
-            const processedSlots = [];
-
-            dateSelects.forEach((selectNode, idx) => {
-                if(timeSelects[idx] && timeSelects[idx].value) {
-                    processedSlots.push(`${selectNode.value} @ ${timeSelects[idx].value}`);
-                }
-            });
-
-            if(selectedIdeas.size === 0) selectedIdeas.add('any');
-
-            activeInviteData = {
-                a: asker,
-                e: askerEmail,
-                r: recipient,
-                p: pronoun,
-                i: Array.from(selectedIdeas),
-                s: processedSlots
-            };
-
-            const baseURL = window.location.href.split('?')[0];
-
-            // Show the share card immediately with a loading state.
-            const urlBox = document.getElementById('generated-url');
-            const genBtn = document.getElementById('generate-btn');
-            const copyBtn = document.getElementById('copy-btn');
-            genBtn.disabled = true;
-            copyBtn.disabled = true;
-            urlBox.innerText = "Generating link… ⏳";
-            document.getElementById('asker-card').classList.add('hidden');
-            document.getElementById('share-card').classList.remove('hidden');
-
-            // Save the invite to jsonbin and share a short ?id= link.
-            let shareLink = null;
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-                const res = await fetch('https://api.jsonbin.io/v3/b', {
-                    method: 'POST',
-                    signal: controller.signal,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Access-Key': JSONBIN_CONFIG.ACCESS_KEY,
-                        'X-Bin-Private': 'false'
-                    },
-                    body: JSON.stringify(activeInviteData)
-                });
-                clearTimeout(timeoutId);
-                const json = await res.json();
-                if (res.ok && json.metadata && json.metadata.id) {
-                    shareLink = `${baseURL}?id=${json.metadata.id}`;
-                } else {
-                    console.error('jsonbin create failed:', json);
-                }
-            } catch (err) {
-                console.error('jsonbin create failed/timed out:', err);
-            }
-
-            if (shareLink) {
-                urlBox.innerText = shareLink;
-                copyBtn.disabled = false;
-            } else {
-                urlBox.innerText = "⚠️ Couldn't generate link — please try again.";
-            }
-            genBtn.disabled = false;
-        });
-
-        document.getElementById('copy-btn').addEventListener('click', () => {
-            const linkText = document.getElementById('generated-url').innerText;
-            navigator.clipboard.writeText(linkText).then(() => {
-                const btn = document.getElementById('copy-btn');
-                btn.innerText = "Copied! ✔️";
-                btn.style.backgroundColor = "#4caf50";
-                setTimeout(() => {
-                    btn.innerText = "Copy Link 📋";
-                    btn.style.backgroundColor = "var(--primary)";
-                }, 2000);
-            });
-        });
-
-        document.getElementById('preview-btn').addEventListener('click', () => {
-            renderRecipientView(activeInviteData);
-            document.getElementById('share-card').classList.add('hidden');
-            // Only shown in preview mode — real recipients never see this.
-            document.getElementById('preview-back-btn').classList.remove('hidden');
-        });
-
-        // Back: share-link page → asker form
-        document.getElementById('share-back-btn').addEventListener('click', () => {
-            document.getElementById('share-card').classList.add('hidden');
-            document.getElementById('asker-card').classList.remove('hidden');
-        });
-
-        // Back: preview → share-link page
-        document.getElementById('preview-back-btn').addEventListener('click', () => {
-            document.getElementById('recipient-card').classList.add('hidden');
-            document.getElementById('preview-back-btn').classList.add('hidden');
-            document.getElementById('share-card').classList.remove('hidden');
-        });
-
-        const recipientSelectedIdeas = new Set();
-        let currentInvite = null;
-
-        function renderRecipientView(data) {
-            currentInvite = data;
-            document.getElementById('landing-page').classList.add('hidden');
-            document.getElementById('asker-card').classList.add('hidden');
-            document.getElementById('share-card').classList.add('hidden');
-
-            // Reset any leftover state from a previous preview / "Yes" answer.
-            recipientSelectedIdeas.clear();
-            document.getElementById('recipient-emoji').innerText = '✨';
-            document.querySelectorAll('.selection-section-title').forEach(el => el.classList.remove('hidden'));
-            document.getElementById('recipient-ideas-grid').classList.remove('hidden');
-            document.getElementById('slots-selector-container').classList.remove('hidden');
-            document.getElementById('action-wrapper').classList.remove('hidden');
-            document.getElementById('other-input-container').classList.add('hidden');
-            document.getElementById('other-freeform').value = '';
-
-            document.getElementById('recipient-title').innerText = `Hey ${data.r}! 💕`;
-            
-            let objectivePronoun = data.p === 'him' ? 'him' : data.p === 'them' ? 'them' : 'her';
-            document.getElementById('recipient-subtitle').innerText = `${data.a} wants to take you out! Customize your ideal date with ${objectivePronoun}:`;
-
-            const recipientIdeasGrid = document.getElementById('recipient-ideas-grid');
-            recipientIdeasGrid.innerHTML = '';
-            
-            data.i.forEach(id => {
-                const match = dateCatalog.find(x => x.id === id);
-                const cardEl = document.createElement('div');
-                cardEl.className = 'idea-card';
-                cardEl.innerHTML = `<div class="badge-check">✓</div><div class="emoji-icon">${match.emoji}</div><span>${match.label}</span>`;
-                
-                cardEl.addEventListener('click', () => {
-                    if(recipientSelectedIdeas.has(match.id)) {
-                        recipientSelectedIdeas.delete(match.id);
-                        cardEl.classList.remove('selected');
-                    } else {
-                        recipientSelectedIdeas.add(match.id);
-                        cardEl.classList.add('selected');
-                    }
-                });
-                recipientIdeasGrid.appendChild(cardEl);
-            });
-
-            const otherCardEl = document.createElement('div');
-            otherCardEl.className = 'idea-card';
-            otherCardEl.innerHTML = `<div class="badge-check">✓</div><div class="emoji-icon">🤔</div><span>Other...</span>`;
-            otherCardEl.addEventListener('click', () => {
-                const otherInput = document.getElementById('other-input-container');
-                if(recipientSelectedIdeas.has('other')) {
-                    recipientSelectedIdeas.delete('other');
-                    otherCardEl.classList.remove('selected');
-                    otherInput.classList.add('hidden');
-                } else {
-                    recipientSelectedIdeas.add('other');
-                    otherCardEl.classList.add('selected');
-                    otherInput.classList.remove('hidden');
-                }
-            });
-            recipientIdeasGrid.appendChild(otherCardEl);
-
-            const slotsContainer = document.getElementById('slots-selector-container');
-            slotsContainer.innerHTML = '';
-            data.s.forEach((slotText, index) => {
-                const labelEl = document.createElement('label');
-                labelEl.className = 'select-item';
-                labelEl.innerHTML = `<input type="radio" name="time-radio" value="time-${index}"> <span>${slotText}</span>`;
-                labelEl.querySelector('input').addEventListener('change', (e) => {
-                    slotsContainer.querySelectorAll('.select-item').forEach(x => x.classList.remove('selected'));
-                    if(e.target.checked) labelEl.classList.add('selected');
-                });
-                slotsContainer.appendChild(labelEl);
-            });
-
-            document.getElementById('recipient-card').classList.remove('hidden');
-            setTimeout(setupInitialNoButtonPosition, 50);
-            window.scrollTo(0, 0);
-        }
-
-        const noBtn = document.getElementById('no-btn');
-        
-        function setupInitialNoButtonPosition() {
-            if (document.getElementById('recipient-card').classList.contains('hidden')) return;
-            
-            noBtn.style.position = '';
-            noBtn.style.left = '';
-            noBtn.style.top = '';
-            
-            const initialRect = noBtn.getBoundingClientRect();
-            
-            noBtn.style.left = initialRect.left + 'px';
-            noBtn.style.top = initialRect.top + 'px';
-            noBtn.style.position = 'fixed';
-        }
-
-        window.addEventListener('resize', setupInitialNoButtonPosition);
-
-        function dodge() {
-            if(noBtn.style.position !== 'fixed') {
-                setupInitialNoButtonPosition();
-            }
-
-            const padding = 30; 
-            const maxX = window.innerWidth - noBtn.offsetWidth - padding;
-            const maxY = window.innerHeight - noBtn.offsetHeight - padding;
-
-            const randomX = Math.floor(Math.random() * (maxX - padding) + padding);
-            const randomY = Math.floor(Math.random() * (maxY - padding) + padding);
-
-            noBtn.style.left = randomX + 'px';
-            noBtn.style.top = randomY + 'px';
-        }
-
-        noBtn.addEventListener('mouseover', dodge);
-        noBtn.addEventListener('touchstart', (e) => { e.preventDefault(); dodge(); });
-
-        document.getElementById('yes-btn').addEventListener('click', () => {
-            let vibes = [];
-            recipientSelectedIdeas.forEach(id => {
-                if(id === 'other') {
-                    const altVal = document.getElementById('other-freeform').value;
-                    vibes.push(altVal ? `Custom Vibe (${altVal})` : 'Alternative Custom Plan');
-                } else {
-                    vibes.push(dateCatalog.find(x => x.id === id).label);
-                }
-            });
-            
-            const selectedTimeEl = document.querySelector('input[name="time-radio"]:checked');
-            const finalTime = selectedTimeEl ? selectedTimeEl.parentElement.querySelector('span').innerText : "a perfect time";
-
-            // 📧 Notify the asker by email with the recipient's picks.
-            const chosenVibes = vibes.join(' & ') || 'Surprise Vibe';
-            if (currentInvite && currentInvite.e && EMAILJS_CONFIG.PUBLIC_KEY !== 'YOUR_PUBLIC_KEY') {
-                emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, {
-                    to_email: currentInvite.e,
-                    asker_name: currentInvite.a,
-                    recipient_name: currentInvite.r,
-                    vibes: chosenVibes,
-                    date_time: finalTime
-                }).catch(err => console.error('Notification email failed:', err));
-            }
-
-            document.getElementById('recipient-emoji').innerText = '🎉✨';
-            document.getElementById('recipient-title').innerText = "It's a date!!";
-            document.getElementById('recipient-subtitle').innerHTML = `Going for: <strong>${vibes.join(' & ') || 'Surprise Vibe'}</strong><br>Scheduled for: <strong>${finalTime}</strong>.<br><br>Can't wait! 🍰🌸`;
-            
-            document.querySelectorAll('.selection-section-title').forEach(el => el.classList.add('hidden'));
-            document.getElementById('recipient-ideas-grid').classList.add('hidden');
-            document.getElementById('slots-selector-container').classList.add('hidden');
-            document.getElementById('other-input-container').classList.add('hidden');
-            document.getElementById('action-wrapper').classList.add('hidden');
-            window.scrollTo(0, 0);
-        });
-    </script>
+    <main class="card hidden" id="unavailable-card">
+        <div class="header-illustration">💔</div>
+        <h2>Invite Unavailable</h2>
+        <p>This invite link does not exist, has expired, or was deleted.</p>
+        <button class="btn btn-primary" id="unavailable-create-btn">Create a New Invite ✨</button>
+    </main>
 </body>
 </html>

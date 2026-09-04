@@ -1,0 +1,7 @@
+.git
+.gitignore
+letsgoout
+*.db
+*.db-shm
+*.db-wal
+README.md

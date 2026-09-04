@@ -1,43 +1,35 @@
-// Bump this version whenever you want to force-refresh the cached app shell.
-const CACHE = 'letsgoout-v1';
+const CACHE = 'letsgoout-v7';
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-maskable-512.png',
-  './apple-touch-icon.png'
+    '/',
+    '/index.html',
+    '/styles.css?v=7',
+    '/app.js?v=7',
+    '/manifest.webmanifest',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/icon-maskable-512.png',
+    '/apple-touch-icon.png',
+    '/fonts/fredoka-regular.woff2',
+    '/fonts/fredoka-semibold.woff2'
 ];
+const ALLOWED_PATHS = new Set(ASSETS.map((asset) => new URL(asset, self.location.origin).pathname));
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+    event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+    event.waitUntil(
+        caches.keys()
+            .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+            .then(() => self.clients.claim())
+    );
 });
 
 self.addEventListener('fetch', (event) => {
-  const req = event.request;
-
-  // Only handle same-origin GETs. jsonbin / EmailJS / fonts / CDN go straight to network.
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-
-  // Network-first: always try the live version, fall back to cache when offline.
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((cache) => cache.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req).then((cached) => cached || caches.match('./index.html')))
-  );
+    const request = event.request;
+    const url = new URL(request.url);
+    if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+    if (!ALLOWED_PATHS.has(url.pathname)) return;
+    event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
 });
