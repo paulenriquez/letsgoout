@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=32">
-    <script src="/app.js?v=32" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=33">
+    <script src="/app.js?v=33" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -51,16 +51,41 @@
     <main class="card hidden" id="share-card">
         <div class="header-illustration">🔗</div>
         <h2>Links Generated!</h2>
-        <p>Send the invite link to them, and keep the status link private.</p>
-        <span class="form-label" id="share-invite-label">INVITE LINK - SEND THIS</span>
-        <div class="link-box" id="generated-invite-url"></div>
+        <p id="share-instructions">Share the invite link with them, and then use the private status link to view their response.</p>
+        <div class="share-link-heading">
+            <span class="form-label">INVITE LINK</span>
+            <span class="share-link-subheading" id="share-invite-label">Share this</span>
+        </div>
+        <button type="button" class="link-box clickable-link-box" id="generated-invite-box" aria-label="Copy invite link">
+            <span class="link-box-value" id="generated-invite-url"></span>
+        </button>
         <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
-        <span class="form-label private-link-label">PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)</span>
-        <div class="link-box" id="generated-status-url"></div>
-        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Status Link 🔒</button>
+        <div class="private-link-heading">
+            <div class="share-link-heading">
+                <span class="form-label">PRIVATE STATUS LINK</span>
+                <span class="share-link-subheading" id="share-status-label">Save this link to view their response</span>
+            </div>
+        </div>
+        <button type="button" class="link-box clickable-link-box status-link-box" id="generated-status-box" aria-label="Copy private status link">
+            <span class="link-box-value" id="generated-status-url"></span>
+            <span class="private-link-warning">
+                <span class="private-link-warning-lead">
+                    <!-- Alert Triangle icon from Lucide, https://lucide.dev (ISC License). Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that this notice appears in all copies. -->
+                    <svg class="private-link-warning-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path>
+                        <path d="M12 9v4"></path>
+                        <path d="M12 17h.01"></path>
+                    </svg>
+                    <strong>For your eyes only.</strong>
+                </span>
+                <span>Save it somewhere you won’t lose it.</span>
+                <span>It can’t be recovered.</span>
+            </span>
+        </button>
+        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Private Status Link 🔒</button>
         <div class="share-tertiary-actions">
             <button class="btn btn-tertiary" id="preview-btn">Preview Invite 👀</button>
-            <button class="btn btn-tertiary" id="share-back-btn">Create new Invite</button>
+            <button class="btn btn-tertiary" id="share-back-btn">← Create New Invite</button>
         </div>
     </main>
 
@@ -129,10 +154,26 @@
         <h2 id="status-title">Invite Status</h2>
         <p id="status-summary">Checking your invitation…</p>
         <div class="status-details hidden" id="status-details"></div>
-        <p class="status-updated" id="status-updated"></p>
         <p class="form-error hidden" id="status-error" role="alert"></p>
-        <button class="btn btn-primary" id="status-refresh-btn">Refresh Status ↻</button>
-        <button class="btn btn-secondary danger-button" id="status-delete-btn">Permanently Delete Invite</button>
+        <div class="status-actions">
+            <a class="btn btn-secondary status-invite-link hidden" id="status-invite-link" target="_blank" rel="noopener">View Invite Link ↗</a>
+            <button class="btn btn-primary" id="status-refresh-btn">Refresh Status ↻</button>
+            <button class="btn btn-secondary danger-button" id="status-delete-btn">Permanently Delete Invite</button>
+        </div>
+        <div class="status-metadata hidden" id="status-metadata">
+            <div class="status-metadata-row hidden" id="status-accepted-row">
+                <span>Accepted</span>
+                <time id="status-accepted"></time>
+            </div>
+            <div class="status-metadata-row">
+                <span>Expires</span>
+                <time id="status-expires"></time>
+            </div>
+            <div class="status-metadata-row">
+                <span>Last checked</span>
+                <time id="status-updated"></time>
+            </div>
+        </div>
     </main>
 
     <main class="card hidden" id="unavailable-card">

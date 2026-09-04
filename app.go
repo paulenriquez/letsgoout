@@ -186,13 +186,13 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recipientToken, recipientHash, err := newToken(a.random)
+	statusToken, statusHash, err := newToken(a.random)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	statusToken, statusHash, err := newToken(a.random)
-	if err != nil {
+	recipientToken, recipientHash, ok := recipientTokenForStatus(statusToken)
+	if !ok {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -347,6 +347,13 @@ func (a *app) handleStatusView(w http.ResponseWriter, r *http.Request) {
 		"status": "pending", "asker_name": record.AskerName, "recipient_name": record.RecipientName,
 		"custom_ideas": record.CustomIdeas, "proposed_slots": record.ProposedSlots,
 		"expires_at": record.ExpiresAt.Format(time.RFC3339),
+	}
+	if recipientToken, recipientHash, ok := recipientTokenForStatus(req.Token); ok {
+		var storedHash []byte
+		if err := a.db.QueryRowContext(r.Context(), `SELECT recipient_token_hash FROM invites WHERE id = ?`, record.ID).Scan(&storedHash); err == nil &&
+			len(storedHash) == sha256.Size && subtle.ConstantTimeCompare(storedHash, recipientHash[:]) == 1 {
+			response["invite_url"] = a.cfg.PublicBaseURL + "/#/invite/" + recipientToken
+		}
 	}
 	if record.AcceptedAt != nil {
 		response["status"] = "accepted"
@@ -543,6 +550,15 @@ func newToken(random io.Reader) (string, [32]byte, error) {
 	}
 	token := base64.RawURLEncoding.EncodeToString(b)
 	return token, sha256.Sum256([]byte(token)), nil
+}
+
+func recipientTokenForStatus(statusToken string) (string, [32]byte, bool) {
+	if _, ok := hashToken(statusToken); !ok {
+		return "", [32]byte{}, false
+	}
+	digest := sha256.Sum256([]byte("invite:" + statusToken))
+	token := base64.RawURLEncoding.EncodeToString(digest[:16])
+	return token, sha256.Sum256([]byte(token)), true
 }
 
 func hashToken(token string) ([32]byte, bool) {

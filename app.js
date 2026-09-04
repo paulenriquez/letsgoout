@@ -133,7 +133,9 @@ function isStatusResponse(data) {
     if (!data || !['pending', 'accepted'].includes(data.status) || typeof data.asker_name !== 'string' ||
         typeof data.recipient_name !== 'string' || !Array.isArray(data.custom_ideas) ||
         !data.custom_ideas.every((item) => isCustomIdea(item, true)) ||
-        !isStringArray(data.proposed_slots, 1, 5) || typeof data.expires_at !== 'string') return false;
+        !isStringArray(data.proposed_slots, 1, 5) || typeof data.expires_at !== 'string' ||
+        (data.invite_url !== undefined && (typeof data.invite_url !== 'string' ||
+            !data.invite_url.startsWith(`${location.origin}/#/invite/`)))) return false;
     if (data.status === 'pending') return true;
     const customIDs = new Set(data.custom_ideas.map((item) => item.id));
     return typeof data.accepted_at === 'string' && Array.isArray(data.selected_ideas) &&
@@ -316,6 +318,14 @@ function formatSlot(slot) {
     return new Date(slot).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+function formatStatusDate(value) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+        second: '2-digit', hour12: true
+    }).formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+    return `${parts.day} ${parts.month} ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod.toUpperCase()}`;
+}
+
 function buildInviteDraft() {
     showError('create-error', '');
     const customIdeas = [...document.querySelectorAll('.custom-idea-row')].map((row) => ({
@@ -380,7 +390,10 @@ async function createInvite() {
         const result = await postJSON('/api/invites', activeCreateRequest);
         if (!isCreateResponse(result)) throw new APIError(0, 'The server returned an invalid response.');
         activeInviteData = { ...activeInviteData, expires_at: result.expires_at };
-        byID('share-invite-label').textContent = `INVITE LINK - SEND THIS TO ${activeCreateRequest.recipient_name}`;
+        const recipientName = activeCreateRequest.recipient_name;
+        byID('share-instructions').textContent = `Share the invite link with ${recipientName}, and then use the private status link to view their response.`;
+        byID('share-invite-label').textContent = `Share this to ${recipientName}`;
+        byID('share-status-label').textContent = `Save this link to view ${recipientName}'s response`;
         byID('generated-invite-url').textContent = result.invite_url;
         byID('generated-status-url').textContent = result.status_url;
         showScreen('share-card');
@@ -421,7 +434,9 @@ function startNewInvite() {
     recipientSelectedIdeas.clear();
     prepareNoButtonPosition();
 
-    byID('share-invite-label').textContent = 'INVITE LINK - SEND THIS';
+    byID('share-instructions').textContent = 'Share the invite link with them, and then use the private status link to view their response.';
+    byID('share-invite-label').textContent = 'Share this';
+    byID('share-status-label').textContent = 'Save this link to view their response';
     byID('generated-invite-url').textContent = '';
     byID('generated-status-url').textContent = '';
     showError('create-error', '');
@@ -669,12 +684,24 @@ function ideaEmoji(id, customIdeas) {
 
 function renderStatus(data) {
     const details = byID('status-details');
+    const inviteLink = byID('status-invite-link');
+    const acceptedRow = byID('status-accepted-row');
     details.replaceChildren();
     byID('status-title').textContent = `${data.recipient_name}'s Invite`;
+    if (data.invite_url) {
+        inviteLink.href = data.invite_url;
+        inviteLink.classList.remove('hidden');
+    } else {
+        inviteLink.removeAttribute('href');
+        inviteLink.classList.add('hidden');
+    }
     if (data.status === 'pending') {
         byID('status-emoji').textContent = '💌';
         byID('status-summary').textContent = 'Still waiting for a response.';
-        addStatusRow(details, 'Expires', new Date(data.expires_at).toLocaleString());
+        details.classList.add('hidden');
+        acceptedRow.classList.add('hidden');
+        byID('status-accepted').textContent = '';
+        byID('status-accepted').removeAttribute('datetime');
     } else {
         byID('status-emoji').textContent = '🎉✨';
         byID('status-summary').textContent = "It's a date! Here's the accepted plan:";
@@ -683,11 +710,17 @@ function renderStatus(data) {
         addStatusRow(details, 'Vibe', labels.join(' & '));
         addStatusRow(details, 'Time', formatSlot(data.proposed_slots[data.selected_slot_index]));
         if (data.recipient_message) addStatusRow(details, `Message from ${data.recipient_name}`, data.recipient_message, 'status-message');
-        addStatusRow(details, 'Accepted', new Date(data.accepted_at).toLocaleString());
-        addStatusRow(details, 'Expires', new Date(data.expires_at).toLocaleString());
+        details.classList.remove('hidden');
+        byID('status-accepted').textContent = formatStatusDate(data.accepted_at);
+        byID('status-accepted').dateTime = data.accepted_at;
+        acceptedRow.classList.remove('hidden');
     }
-    details.classList.remove('hidden');
-    byID('status-updated').textContent = `Last checked ${new Date().toLocaleTimeString()}`;
+    byID('status-expires').textContent = formatStatusDate(data.expires_at);
+    byID('status-expires').dateTime = data.expires_at;
+    const checkedAt = new Date();
+    byID('status-updated').textContent = formatStatusDate(checkedAt);
+    byID('status-updated').dateTime = checkedAt.toISOString();
+    byID('status-metadata').classList.remove('hidden');
     showError('status-error', '');
 }
 
@@ -717,7 +750,8 @@ async function deleteInvite() {
         byID('status-title').textContent = 'Invite Deleted';
         byID('status-summary').textContent = 'Both invitation links have been permanently deleted.';
         byID('status-details').classList.add('hidden');
-        byID('status-updated').textContent = '';
+        byID('status-invite-link').classList.add('hidden');
+        byID('status-metadata').classList.add('hidden');
         byID('status-refresh-btn').classList.add('hidden');
         button.classList.add('hidden');
         showError('status-error', '');
@@ -802,8 +836,10 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('add-custom-idea-trigger').addEventListener('click', createCustomIdeaRow);
     byID('creator-preview-btn').addEventListener('click', previewDraft);
     byID('preview-generate-btn').addEventListener('click', createInvite);
+    byID('generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
-    byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Status Link 🔒'));
+    byID('generated-status-box').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
+    byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
     byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
     byID('share-back-btn').addEventListener('click', startNewInvite);
     byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));
