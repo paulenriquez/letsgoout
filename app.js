@@ -625,16 +625,7 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     byID('recipient-subtitle').classList.remove('hidden');
     const acceptedLabels = [...selectedLabels, ...(customIdea ? [customIdea] : [])];
     const acceptedEmojis = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])];
-    byID('accepted-ideas-icon').textContent = acceptedEmojis.length > 1 ? '🚀' : (acceptedEmojis[0] || '🚀');
-    const showItemEmojis = acceptedEmojis.length > 1;
-    const acceptedIdeas = byID('accepted-ideas');
-    acceptedIdeas.replaceChildren();
-    acceptedLabels.forEach((label, index) => {
-        const item = makeElement('li', showItemEmojis ? 'accepted-idea' : 'accepted-idea accepted-idea-single');
-        if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji', acceptedEmojis[index]));
-        item.appendChild(makeElement('span', 'accepted-idea-label', label));
-        acceptedIdeas.appendChild(item);
-    });
+    renderPlanIdeas(byID('accepted-ideas-icon'), byID('accepted-ideas'), acceptedLabels, acceptedEmojis);
     byID('accepted-slot').textContent = slotLabel;
     byID('accepted-message-label').textContent = `Your message to ${currentInvite.asker_name}`;
     byID('accepted-message-text').textContent = recipientMessage;
@@ -644,6 +635,18 @@ function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, r
     showError('accept-error', '');
     showScreen('recipient-card');
     startCelebration();
+}
+
+function renderPlanIdeas(icon, list, labels, emojis) {
+    icon.textContent = emojis.length > 1 ? '🚀' : (emojis[0] || '🚀');
+    const showItemEmojis = emojis.length > 1;
+    list.replaceChildren();
+    labels.forEach((label, index) => {
+        const item = makeElement('li', showItemEmojis ? 'accepted-idea' : 'accepted-idea accepted-idea-single');
+        if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji', emojis[index]));
+        item.appendChild(makeElement('span', 'accepted-idea-label', label));
+        list.appendChild(item);
+    });
 }
 
 function renderAcceptedResponse(data) {
@@ -689,12 +692,6 @@ async function acceptInvite() {
         showError('accept-error', error.status === 409 ? 'This invitation has already been accepted.' : (error.message || 'Could not save your answer.'));
         updateAcceptButton();
     }
-}
-
-function addStatusRow(parent, label, value, extraClass = '') {
-    const row = makeElement('div', ['status-row', extraClass].filter(Boolean).join(' '));
-    row.append(makeElement('strong', '', `${label}: `), document.createTextNode(value));
-    parent.appendChild(row);
 }
 
 function ideaLabel(id, customIdeas) {
@@ -746,7 +743,6 @@ function renderStatus(data) {
     const updatedRow = byID('status-updated-row');
     statusAutoRefreshEnabled = data.status === 'pending';
     byID('status-card').classList.remove('status-error-state');
-    details.replaceChildren();
     byID('status-title').textContent = `${data.recipient_name}'s Invite`;
     summary.classList.remove('hidden');
     byID('status-expires-row').classList.remove('hidden');
@@ -764,6 +760,12 @@ function renderStatus(data) {
         summary.textContent = 'Still waiting for a response.';
         summary.classList.add('status-summary-pending');
         details.classList.add('hidden');
+        byID('status-response-ideas-icon').textContent = '🚀';
+        byID('status-response-ideas').replaceChildren();
+        byID('status-response-slot').textContent = '';
+        byID('status-response-message').classList.add('hidden');
+        byID('status-response-message-label').textContent = 'Message';
+        byID('status-response-message-text').textContent = '';
         acceptedRow.classList.add('hidden');
         byID('status-accepted').textContent = '';
         byID('status-accepted').removeAttribute('datetime');
@@ -772,10 +774,16 @@ function renderStatus(data) {
         summary.textContent = "It's a date! Here's the accepted plan:";
         summary.classList.remove('status-summary-pending');
         const labels = data.selected_ideas.map((id) => ideaLabel(id, data.custom_ideas));
-        if (data.custom_idea) labels.push(data.custom_idea);
-        addStatusRow(details, 'Vibe', labels.join(' & '));
-        addStatusRow(details, 'Time', formatSlot(data.proposed_slots[data.selected_slot_index]));
-        if (data.recipient_message) addStatusRow(details, `Message from ${data.recipient_name}`, data.recipient_message, 'status-message');
+        const emojis = data.selected_ideas.map((id) => ideaEmoji(id, data.custom_ideas));
+        if (data.custom_idea) {
+            labels.push(data.custom_idea);
+            emojis.push('🤔');
+        }
+        renderPlanIdeas(byID('status-response-ideas-icon'), byID('status-response-ideas'), labels, emojis);
+        byID('status-response-slot').textContent = formatSlot(data.proposed_slots[data.selected_slot_index]);
+        byID('status-response-message-label').textContent = `Message from ${data.recipient_name}`;
+        byID('status-response-message-text').textContent = data.recipient_message;
+        byID('status-response-message').classList.toggle('hidden', !data.recipient_message);
         details.classList.remove('hidden');
         byID('status-accepted').textContent = formatStatusDate(data.accepted_at);
         byID('status-accepted').dateTime = data.accepted_at;

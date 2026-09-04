@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=55">
-    <script src="/app.js?v=56" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=56">
+    <script src="/app.js?v=57" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -125,7 +125,7 @@
                 <span class="accepted-plan-icon" aria-hidden="true">💌</span>
                 <div class="accepted-plan-copy">
                     <span class="accepted-plan-label" id="accepted-message-label">Your message</span>
-                    <p id="accepted-message-text"></p>
+                    <p class="accepted-message-text" id="accepted-message-text"></p>
                 </div>
             </div>
             <p class="accepted-note">Can't wait, see you soon! 🤩</p>
@@ -155,7 +155,31 @@
         <div class="header-illustration" id="status-emoji">💌</div>
         <h2 id="status-title">Invite Status</h2>
         <p id="status-summary">Checking your invitation…</p>
-        <div class="status-details hidden" id="status-details"></div>
+        <section class="accepted-plan status-response hidden" id="status-details" aria-label="Accepted response">
+            <div class="accepted-plan-grid">
+                <div class="accepted-plan-item">
+                    <span class="accepted-plan-icon accepted-ideas-icon" id="status-response-ideas-icon" aria-hidden="true">🚀</span>
+                    <div class="accepted-plan-copy">
+                        <span class="accepted-plan-label">Going for</span>
+                        <ul class="accepted-ideas-list" id="status-response-ideas"></ul>
+                    </div>
+                </div>
+                <div class="accepted-plan-item">
+                    <span class="accepted-plan-icon" aria-hidden="true">🗓️</span>
+                    <div class="accepted-plan-copy">
+                        <span class="accepted-plan-label">Scheduled for</span>
+                        <strong id="status-response-slot"></strong>
+                    </div>
+                </div>
+            </div>
+            <div class="accepted-message hidden" id="status-response-message">
+                <span class="accepted-plan-icon" aria-hidden="true">💌</span>
+                <div class="accepted-plan-copy">
+                    <span class="accepted-plan-label" id="status-response-message-label">Message</span>
+                    <p class="accepted-message-text" id="status-response-message-text"></p>
+                </div>
+            </div>
+        </section>
         <p class="form-error hidden" id="status-error" role="alert"></p>
         <div class="status-invite-share hidden" id="status-invite-share">
             <div class="share-link-heading">

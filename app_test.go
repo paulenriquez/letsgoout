@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=56" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=55">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=57" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=56">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -669,6 +669,13 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="recipient-message-label">3. Message (Optional)`,
 		`id="recipient-message" maxlength="280"`,
 		`class="status-invite-share hidden" id="status-invite-share"`,
+		`class="accepted-plan status-response hidden" id="status-details" aria-label="Accepted response"`,
+		`id="status-response-ideas-icon" aria-hidden="true"`,
+		`class="accepted-ideas-list" id="status-response-ideas"`,
+		`id="status-response-slot"`,
+		`id="status-response-message"`,
+		`id="status-response-message-label"`,
+		`class="accepted-message-text" id="status-response-message-text"`,
 		`id="status-invite-label">Share this`,
 		`id="status-invite-box" aria-label="Copy invite link"`,
 		`class="link-box-value" id="status-invite-url"`,
@@ -760,7 +767,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if !strings.Contains(clientText, "byID('accepted-replay-confetti-btn').addEventListener('click', startCelebration)") {
 		t.Fatal("accepted confetti replay button is not wired to the celebration")
 	}
-	for _, marker := range []string{"byID('accepted-ideas-icon').textContent = acceptedEmojis.length > 1 ? '🚀' : (acceptedEmojis[0] || '🚀')", "const acceptedLabels = [...selectedLabels", "const acceptedEmojis = [...selectedEmojis", "const showItemEmojis = acceptedEmojis.length > 1", "if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji'", "makeElement('span', 'accepted-idea-label'"} {
+	for _, marker := range []string{"function renderPlanIdeas(icon, list, labels, emojis)", "icon.textContent = emojis.length > 1 ? '🚀' : (emojis[0] || '🚀')", "const acceptedLabels = [...selectedLabels", "const acceptedEmojis = [...selectedEmojis", "const showItemEmojis = emojis.length > 1", "if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji'", "makeElement('span', 'accepted-idea-label'", "renderPlanIdeas(byID('status-response-ideas-icon'), byID('status-response-ideas'), labels, emojis)", "byID('status-response-slot').textContent = formatSlot", "`Message from ${data.recipient_name}`", "byID('status-response-message').classList.toggle('hidden', !data.recipient_message)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted vertical idea list is missing marker %q", marker)
 		}
@@ -781,7 +788,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-response { margin-bottom: 1rem; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}
