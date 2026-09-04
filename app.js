@@ -22,6 +22,9 @@ let currentInviteToken = '';
 let currentStatusToken = '';
 let previewMode = false;
 let previewSource = '';
+let celebrationTimer = 0;
+
+const celebrationEmojis = ['🎉', '🎊', '🥳', '✨', '💫', '⭐', '💖', '💘', '💕', '🌸'];
 
 const byID = (id) => document.getElementById(id);
 const allScreens = ['landing-page', 'asker-card', 'share-card', 'recipient-card', 'status-card', 'unavailable-card'];
@@ -445,13 +448,49 @@ function updateAcceptButton() {
     byID('yes-btn').disabled = !pickedTime || (!hasOffered && !hasCustom);
 }
 
+function clearCelebration() {
+    window.clearTimeout(celebrationTimer);
+    celebrationTimer = 0;
+    byID('celebration-confetti').replaceChildren();
+}
+
+function startCelebration() {
+    clearCelebration();
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const confetti = byID('celebration-confetti');
+    const pieceCount = window.innerWidth < 480 ? 48 : 72;
+    for (let index = 0; index < pieceCount; index += 1) {
+        const piece = makeElement('span', 'confetti-piece', celebrationEmojis[index % celebrationEmojis.length]);
+        const isHeroPiece = index % 7 === 0;
+        piece.setAttribute('aria-hidden', 'true');
+        piece.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
+        piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 50 - 25)}vw`);
+        piece.style.setProperty('--confetti-spin', `${Math.round(Math.random() * 1080 - 540)}deg`);
+        piece.style.setProperty('--confetti-delay', `${(Math.random() * 5 - 4.2).toFixed(2)}s`);
+        piece.style.setProperty('--confetti-duration', `${(5.2 + Math.random() * 1.6).toFixed(2)}s`);
+        piece.style.setProperty('--confetti-size', `${(1.6 + Math.random() * 1.4 + (isHeroPiece ? 0.65 : 0)).toFixed(2)}rem`);
+        confetti.appendChild(piece);
+    }
+    celebrationTimer = window.setTimeout(clearCelebration, 8000);
+}
+
 function renderRecipientView(data, source = '') {
     currentInvite = data;
     previewMode = Boolean(source);
     previewSource = source;
     recipientSelectedIdeas.clear();
     const recipientCard = byID('recipient-card');
+    clearCelebration();
+    recipientCard.classList.remove('accepted-state');
     recipientCard.classList.toggle('preview-read-only', previewMode);
+    byID('accepted-plan').classList.add('hidden');
+    byID('accepted-ideas-icon').textContent = '✨';
+    byID('accepted-ideas').textContent = '';
+    byID('accepted-slot').textContent = '';
+    byID('accepted-message').classList.add('hidden');
+    byID('accepted-message-label').textContent = 'Your message';
+    byID('accepted-message-text').textContent = '';
     byID('recipient-emoji').textContent = '✨';
     byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
     byID('recipient-subtitle').textContent = data.sender_message || `${data.asker_name} wants to take you out! Pick your ideal date:`;
@@ -523,16 +562,22 @@ function renderRecipientView(data, source = '') {
     if (!previewMode) window.requestAnimationFrame(setupInitialNoButtonPosition);
 }
 
-function renderAccepted(selectedLabels, customIdea, slotLabel) {
+function renderAccepted(selectedLabels, selectedEmojis, customIdea, slotLabel, recipientMessage) {
+    byID('recipient-card').classList.add('accepted-state');
     byID('recipient-emoji').textContent = '🎉✨';
     byID('recipient-title').textContent = "It's a date!!";
-    const subtitle = byID('recipient-subtitle');
-    subtitle.replaceChildren();
-    subtitle.append('Going for: ', makeElement('strong', '', [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ')), document.createElement('br'));
-    subtitle.append('Scheduled for: ', makeElement('strong', '', slotLabel), '.', document.createElement('br'), document.createElement('br'), "Can't wait! 🍰🌸");
+    byID('recipient-subtitle').textContent = 'The plan is officially locked in 💕';
+    byID('accepted-ideas-icon').textContent = [...selectedEmojis, ...(customIdea ? ['🤔'] : [])].join(' ');
+    byID('accepted-ideas').textContent = [...selectedLabels, ...(customIdea ? [customIdea] : [])].join(' & ');
+    byID('accepted-slot').textContent = slotLabel;
+    byID('accepted-message-label').textContent = `Your message to ${currentInvite.asker_name}`;
+    byID('accepted-message-text').textContent = recipientMessage;
+    byID('accepted-message').classList.toggle('hidden', !recipientMessage);
+    byID('accepted-plan').classList.remove('hidden');
     document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.add('hidden'));
     showError('accept-error', '');
     window.scrollTo(0, 0);
+    startCelebration();
 }
 
 async function acceptInvite() {
@@ -541,8 +586,10 @@ async function acceptInvite() {
     if (!selectedTime || byID('yes-btn').disabled) return;
     const selectedIDs = [...recipientSelectedIdeas].filter((id) => id !== 'other');
     const customIdea = recipientSelectedIdeas.has('other') ? byID('other-freeform').value.trim() : '';
+    const recipientMessage = byID('recipient-message').value.trim();
     const slotIndex = Number(selectedTime.value);
     const labels = selectedIDs.map((id) => ideaLabel(id, currentInvite.custom_ideas));
+    const emojis = selectedIDs.map((id) => ideaEmoji(id, currentInvite.custom_ideas));
     const button = byID('yes-btn');
     button.disabled = true;
     showError('accept-error', '');
@@ -552,10 +599,10 @@ async function acceptInvite() {
             selected_ideas: selectedIDs,
             custom_idea: customIdea,
             selected_slot_index: slotIndex,
-            recipient_message: byID('recipient-message').value.trim()
+            recipient_message: recipientMessage
         });
         if (!result || result.status !== 'accepted' || typeof result.expires_at !== 'string') throw new APIError(0, 'The server returned an invalid response.');
-        renderAccepted(labels, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]));
+        renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage);
     } catch (error) {
         showError('accept-error', error.status === 409 ? 'This invitation has already been accepted.' : (error.message || 'Could not save your answer.'));
         updateAcceptButton();
@@ -573,6 +620,13 @@ function ideaLabel(id, customIdeas) {
     if (builtIn) return builtIn.label;
     const custom = customIdeas.find((item) => item.id === id);
     return custom ? custom.title : id;
+}
+
+function ideaEmoji(id, customIdeas) {
+    const builtIn = ideaByID.get(id);
+    if (builtIn) return builtIn.emoji;
+    const custom = customIdeas.find((item) => item.id === id);
+    return custom ? custom.emoji : '✨';
 }
 
 function renderStatus(data) {

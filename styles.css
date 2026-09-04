@@ -185,6 +185,79 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 #recipient-card.preview-read-only .idea-card,
 #recipient-card.preview-read-only .select-item { cursor: default; }
 #recipient-card.preview-read-only .proposal-actions .btn { opacity: 0.6; cursor: default; }
+.celebration-confetti {
+    position: fixed; inset: 0; z-index: 1000; overflow: hidden;
+    pointer-events: none;
+}
+.confetti-piece {
+    position: absolute; top: -3rem; left: var(--confetti-x); font-size: var(--confetti-size);
+    line-height: 1; opacity: 0; will-change: transform, opacity;
+    filter: drop-shadow(0 4px 4px rgba(143, 63, 87, 0.28));
+    animation: emoji-confetti-fall var(--confetti-duration) linear var(--confetti-delay) forwards;
+}
+#recipient-card.accepted-state {
+    isolation: isolate; padding: 2.5rem 1.25rem; border-color: #ffbdcb;
+    background:
+        radial-gradient(circle at 50% 8%, rgba(255, 226, 151, 0.42), transparent 31%),
+        radial-gradient(circle at 8% 88%, rgba(255, 195, 210, 0.42), transparent 28%),
+        linear-gradient(145deg, #ffffff 0%, #fff8fa 58%, #fff0f4 100%);
+    box-shadow: 0 18px 45px rgba(207, 59, 91, 0.18), 0 0 0 8px rgba(255, 255, 255, 0.6);
+}
+#recipient-card.accepted-state #recipient-emoji {
+    display: flex; align-items: center; justify-content: center; width: 6rem; height: 6rem;
+    margin: 0 auto 0.75rem; border: 2px solid rgba(255, 189, 203, 0.8); border-radius: 50%;
+    background: radial-gradient(circle, #ffffff 0%, #fff0c9 55%, #ffe0e8 100%);
+    box-shadow: 0 10px 28px rgba(207, 59, 91, 0.18); font-size: 3.25rem;
+    animation: celebration-pop 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#recipient-card.accepted-state #recipient-title {
+    margin-bottom: 0.4rem; color: #ef5374; font-size: 2.15rem; line-height: 1.05;
+    letter-spacing: -0.035em; animation: celebration-title-in 0.65s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#recipient-card.accepted-state #recipient-subtitle {
+    margin-bottom: 1.4rem; color: #8f5964; font-size: 1rem;
+}
+.accepted-plan { width: 100%; }
+.accepted-plan-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+.accepted-plan-item {
+    display: flex; align-items: flex-start; gap: 0.8rem; min-width: 0; padding: 1rem;
+    border: 2px solid rgba(255, 189, 203, 0.72); border-radius: 18px;
+    background: rgba(255, 255, 255, 0.8); text-align: left;
+    box-shadow: 0 7px 18px rgba(207, 59, 91, 0.08);
+}
+.accepted-plan-icon {
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    width: 2.5rem; height: 2.5rem; border-radius: 13px; background: #fff0f3;
+    font-size: 1.3rem;
+}
+.accepted-ideas-icon {
+    width: auto; min-width: 2.5rem; max-width: 6.5rem; padding: 0 0.45rem;
+    overflow-wrap: anywhere;
+}
+.accepted-plan-copy { min-width: 0; }
+.accepted-plan-label {
+    display: block; margin-bottom: 0.2rem; color: #b44a63; font-size: 0.7rem;
+    font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.accepted-plan-copy strong {
+    display: block; color: var(--text-main); font-size: 0.95rem; line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.accepted-message {
+    display: flex; align-items: flex-start; gap: 0.8rem; margin-top: 0.75rem; padding: 1rem;
+    border: 2px dashed rgba(255, 167, 187, 0.78); border-radius: 18px;
+    background: rgba(255, 240, 244, 0.78); text-align: left;
+}
+.accepted-message .accepted-plan-copy { flex: 1; }
+#accepted-message-text {
+    margin: 0; color: var(--text-main); font-size: 0.95rem; line-height: 1.45;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.accepted-note {
+    display: inline-flex; align-items: center; justify-content: center; margin: 1.25rem 0 0;
+    padding: 0.55rem 1rem; border-radius: 999px; background: #ffe7ed;
+    color: #9f3f57; font-size: 0.95rem; font-weight: 600;
+}
 .proposal-actions {
     display: flex; gap: 12px; justify-content: center; align-items: center;
     margin-top: 1.5rem; min-height: 50px; width: 100%;
@@ -240,4 +313,29 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     0% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
     100% { transform: translateY(0); }
+}
+@keyframes celebration-pop {
+    0% { opacity: 0; transform: scale(0.45) rotate(-8deg); }
+    65% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes celebration-title-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes emoji-confetti-fall {
+    0% { opacity: 0; transform: translate3d(0, -6vh, 0) rotate(0); }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { opacity: 0; transform: translate3d(var(--confetti-drift), 112vh, 0) rotate(var(--confetti-spin)); }
+}
+@media (min-width: 640px) {
+    #recipient-card.accepted-state { max-width: 560px; padding: 3rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .header-illustration,
+    #recipient-card.accepted-state #recipient-emoji,
+    #recipient-card.accepted-state #recipient-title,
+    .confetti-piece { animation: none; }
+    .confetti-piece { display: none; }
 }

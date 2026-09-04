@@ -588,13 +588,21 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=13" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=13">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=19" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=19">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
 	}
 	for _, marker := range []string{
+		`id="celebration-confetti" aria-hidden="true"`,
+		`id="accepted-plan" role="status" aria-live="polite" aria-atomic="true"`,
+		`id="accepted-ideas-icon" aria-hidden="true"`,
+		`id="accepted-ideas"`,
+		`id="accepted-slot"`,
+		`id="accepted-message"`,
+		`id="accepted-message-label"`,
+		`id="accepted-message-text"`,
 		`id="share-invite-label"`,
 		`PRIVATE STATUS LINK - VIEW RESPONSE HERE (KEEP THIS PRIVATE!)`,
 		`class="share-tertiary-actions"`,
@@ -634,6 +642,26 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	for _, marker := range []string{"INVITE LINK - SEND THIS TO", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"startCelebration", "clearCelebration", "window.innerWidth < 480 ? 48 : 72", "const isHeroPiece = index % 7 === 0", "Math.random() * 5 - 4.2", "window.setTimeout(clearCelebration, 8000)", "(prefers-reduced-motion: reduce)"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"ideaEmoji(id, currentInvite.custom_ideas)", "...(customIdea ? ['🤔'] : [])", "...(customIdea ? [customIdea] : [])", "Your message to ${currentInvite.asker_name}", "classList.toggle('hidden', !recipientMessage)", "renderAccepted(labels, emojis, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]), recipientMessage)"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
+		}
+	}
+	styles, err := os.ReadFile("styles.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	styleText := string(styles)
+	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-plan-grid", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+		if !strings.Contains(styleText, marker) {
+			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}
 	}
 	for _, marker := range []string{"creator-preview-btn", "preview-generate-btn", "custom_ideas", "sender_message"} {

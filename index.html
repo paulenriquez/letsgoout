@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=13">
-    <script src="/app.js?v=13" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=19">
+    <script src="/app.js?v=19" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -65,6 +65,7 @@
     </main>
 
     <main class="card hidden" id="recipient-card">
+        <div class="celebration-confetti" id="celebration-confetti" aria-hidden="true"></div>
         <div class="preview-toolbar hidden" id="preview-toolbar">
             <span class="form-label">Invite Preview</span>
             <p>Recipient controls are disabled in preview mode.</p>
@@ -77,6 +78,32 @@
         <div class="header-illustration" id="recipient-emoji">✨</div>
         <h2 id="recipient-title">Hey! 💕</h2>
         <p id="recipient-subtitle">Pick your preferences:</p>
+        <section class="accepted-plan hidden" id="accepted-plan" role="status" aria-live="polite" aria-atomic="true">
+            <div class="accepted-plan-grid">
+                <div class="accepted-plan-item">
+                    <span class="accepted-plan-icon accepted-ideas-icon" id="accepted-ideas-icon" aria-hidden="true">✨</span>
+                    <div class="accepted-plan-copy">
+                        <span class="accepted-plan-label">Going for</span>
+                        <strong id="accepted-ideas"></strong>
+                    </div>
+                </div>
+                <div class="accepted-plan-item">
+                    <span class="accepted-plan-icon" aria-hidden="true">🗓️</span>
+                    <div class="accepted-plan-copy">
+                        <span class="accepted-plan-label">Scheduled for</span>
+                        <strong id="accepted-slot"></strong>
+                    </div>
+                </div>
+            </div>
+            <div class="accepted-message hidden" id="accepted-message">
+                <span class="accepted-plan-icon" aria-hidden="true">💌</span>
+                <div class="accepted-plan-copy">
+                    <span class="accepted-plan-label" id="accepted-message-label">Your message</span>
+                    <p id="accepted-message-text"></p>
+                </div>
+            </div>
+            <p class="accepted-note">Can’t wait! 🍰🌸</p>
+        </section>
         <div class="selection-section-title recipient-form-part">1. Pick the Vibe</div>
         <div class="ideas-grid recipient-form-part" id="recipient-ideas-grid"></div>
         <div class="form-group hidden recipient-form-part" id="other-input-container">
