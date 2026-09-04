@@ -224,11 +224,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .private-link-heading .form-label { margin-bottom: 0; }
 .private-link-warning {
-    display: inline-flex; align-items: center; gap: 0.3rem;
-    color: var(--secondary-button-text); font-size: 0.76rem; font-weight: 600;
-    letter-spacing: 0.06em;
+    display: inline-flex; align-items: flex-start; gap: 0.35rem;
+    color: var(--secondary-button-text); font-size: 0.76rem;
 }
-.private-link-warning-icon { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; }
+.private-link-warning-icon { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; margin-top: 0.05rem; }
+.private-link-warning-copy { display: flex; flex-direction: column; gap: 0.15rem; text-align: left; }
+.private-link-warning-copy strong { font-weight: 600; letter-spacing: 0.06em; }
+.private-link-warning-copy span { color: var(--text-muted); font-size: 0.72rem; line-height: 1.3; }
 .copy-status-button { margin-top: 0; }
 .share-tertiary-actions {
     display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.25rem;
