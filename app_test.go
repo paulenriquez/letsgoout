@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=51" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=48">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=56" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=51">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -648,6 +648,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`id="accepted-message-label"`,
 		`id="accepted-message-text"`,
 		`class="accepted-note">Can't wait, see you soon! 🤩`,
+		`class="btn btn-primary accepted-replay-button" id="accepted-replay-confetti-btn">Show Emoji Confetti Again</button>`,
 		`id="share-instructions"`,
 		`<span class="form-label">INVITE LINK</span>`,
 		`id="share-invite-label">Share this`,
@@ -731,9 +732,14 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("pending status emphasis is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"function renderStatusError(message)", "byID('status-card').classList.add('status-error-state')", "byID('status-card').classList.remove('status-error-state')", "byID('status-summary').classList.add('hidden')", "byID('status-invite-share').classList.add('hidden')", "byID('status-expires-row').classList.add('hidden')", "byID('status-actions').classList.add('hidden')", "byID('status-updated-row').classList.remove('hidden')", "renderStatusError(error.status === 404", "renderStatusError('You appear to be offline.')", "summary.classList.remove('hidden')", "byID('status-expires-row').classList.remove('hidden')", "byID('status-actions').classList.remove('hidden')"} {
+	for _, marker := range []string{"function renderStatusError(message)", "byID('status-card').classList.add('status-error-state')", "byID('status-card').classList.remove('status-error-state')", "byID('status-summary').classList.add('hidden')", "byID('status-invite-share').classList.add('hidden')", "byID('status-expires-row').classList.add('hidden')", "byID('status-actions').classList.add('hidden')", "byID('status-updated-row').classList.remove('hidden')", "renderStatusError(error.message || 'Could not refresh the status.')", "renderStatusError('You appear to be offline.')", "summary.classList.remove('hidden')", "byID('status-expires-row').classList.remove('hidden')", "byID('status-actions').classList.remove('hidden')"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("status error state is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"if (error.status === 404)", "unavailableCard.classList.add('status-unavailable-state')", "unavailableCard.querySelector('h2').textContent = 'Invite Unavailable or Expired'", "unavailableCard.querySelector('p').classList.add('hidden')", "byID('unavailable-card').classList.remove('status-unavailable-state')", "byID('unavailable-card').querySelector('p').classList.remove('hidden')", "showScreen('unavailable-card')"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("status 404 page is missing marker %q", marker)
 		}
 	}
 	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "status-invite-box').addEventListener('click', () => copyLink('status-invite-url'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
@@ -750,6 +756,9 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted custom choice or message behavior is missing marker %q", marker)
 		}
+	}
+	if !strings.Contains(clientText, "byID('accepted-replay-confetti-btn').addEventListener('click', startCelebration)") {
+		t.Fatal("accepted confetti replay button is not wired to the celebration")
 	}
 	for _, marker := range []string{"byID('accepted-ideas-icon').textContent = acceptedEmojis.length > 1 ? '🚀' : (acceptedEmojis[0] || '🚀')", "const acceptedLabels = [...selectedLabels", "const acceptedEmojis = [...selectedEmojis", "const showItemEmojis = acceptedEmojis.length > 1", "if (showItemEmojis) item.appendChild(makeElement('span', 'accepted-idea-emoji'", "makeElement('span', 'accepted-idea-label'"} {
 		if !strings.Contains(clientText, marker) {
@@ -772,7 +781,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 1.15rem 0 0; }", ".status-summary-pending::before", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}

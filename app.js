@@ -828,8 +828,16 @@ async function refreshStatus() {
         if (!isStatusResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
         renderStatus(data);
     } catch (error) {
-        statusAutoRefreshEnabled = error.status !== 404;
-        renderStatusError(error.status === 404 ? 'This invitation is unavailable or has expired.' : (error.message || 'Could not refresh the status.'));
+        if (error.status === 404) {
+            statusAutoRefreshEnabled = false;
+            const unavailableCard = byID('unavailable-card');
+            unavailableCard.classList.add('status-unavailable-state');
+            unavailableCard.querySelector('h2').textContent = 'Invite Unavailable or Expired';
+            unavailableCard.querySelector('p').classList.add('hidden');
+            showScreen('unavailable-card');
+            return;
+        }
+        renderStatusError(error.message || 'Could not refresh the status.');
     } finally {
         scheduleStatusRefresh();
     }
@@ -866,6 +874,9 @@ async function loadInvite(token) {
         if (!isInviteResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
         if (data.status === 'accepted') renderAcceptedResponse(data); else renderRecipientView(data);
     } catch (error) {
+        byID('unavailable-card').classList.remove('status-unavailable-state');
+        byID('unavailable-card').querySelector('h2').textContent = 'Invite Unavailable';
+        byID('unavailable-card').querySelector('p').classList.remove('hidden');
         byID('unavailable-card').querySelector('p').textContent = error.status === 404
             ? 'This invite link does not exist, has expired, or was deleted.'
             : 'This invitation could not be loaded. Please try again.';
@@ -1021,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAcceptButton();
     });
     byID('yes-btn').addEventListener('click', acceptInvite);
+    byID('accepted-replay-confetti-btn').addEventListener('click', startCelebration);
     byID('status-delete-btn').addEventListener('click', deleteInvite);
     byID('unavailable-create-btn').addEventListener('click', startNewInvite);
     document.addEventListener('visibilitychange', () => {

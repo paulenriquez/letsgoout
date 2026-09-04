@@ -199,7 +199,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     animation: emoji-confetti-fall var(--confetti-duration) linear var(--confetti-delay) forwards;
 }
 #recipient-card.accepted-state {
-    isolation: isolate; padding: 2.5rem 1.25rem; border-color: #ffbdcb;
+    isolation: isolate; padding: 2.5rem 1.25rem 1.5rem; border-color: #ffbdcb;
     background:
         radial-gradient(circle 8.5rem at 50% 5.5rem, rgba(255, 226, 151, 0.46), rgba(255, 240, 201, 0.18) 56%, transparent 76%),
         #fff;
@@ -272,9 +272,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .accepted-note {
-    display: inline-flex; align-items: center; justify-content: center; margin: 1.25rem 0 0;
-    color: #9f3f57; font-size: 0.95rem; font-weight: 400;
+    display: inline-flex; align-items: center; justify-content: center; margin: 1.75rem 0 0;
+    color: #9f3f57; font-size: 1.1rem; font-weight: 400; line-height: 1.4;
 }
+.accepted-replay-button { margin: 1.15rem 0 0; }
 .proposal-actions {
     display: flex; gap: 12px; justify-content: center; align-items: center;
     margin-top: 1.5rem; min-height: 50px; width: 100%;
@@ -384,6 +385,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 #status-card.status-error-state .status-metadata {
     margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;
 }
+#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }
 .danger-button { color: #b4233b; border-color: #e1a2ad; }
 @keyframes float {
     0% { transform: translateY(0); }
@@ -414,7 +416,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     100% { opacity: 0; transform: translate3d(var(--confetti-drift), 112vh, 0) rotate(var(--confetti-spin)); }
 }
 @media (min-width: 640px) {
-    #recipient-card.accepted-state { max-width: 560px; padding: 3rem; }
+    #recipient-card.accepted-state { max-width: 560px; padding: 3rem 3rem 2rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     .status-summary-pending::before { animation: none; }
