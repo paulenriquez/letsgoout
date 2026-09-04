@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=59" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=58">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=62" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=64">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -809,6 +809,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	for _, marker := range []string{"creator-preview-btn", "preview-generate-btn", "custom_ideas", "sender_message"} {
 		if !strings.Contains(clientText, marker) && !strings.Contains(index.Body.String(), marker) {
 			t.Fatalf("custom invite UI is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"function updateSlotControls()", "remove-slot-btn", "if (slotsWrapper.children.length <= 1) return", "remove.setAttribute('aria-label', `Remove date and time option ${index + 1}`)", "byID('add-slot-trigger').disabled = rows.length >= 5"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("removable date option behavior is missing marker %q", marker)
 		}
 	}
 	if strings.Contains(clientText, "serviceWorker.register") || !strings.Contains(clientText, "serviceWorker.getRegistrations") {
