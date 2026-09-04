@@ -14,7 +14,9 @@ Let's Go Out is a dependency-light invitation web app packaged as a single Go bi
 - `main.go`: configuration, database startup, embedded files, migrations, server lifecycle, and graceful shutdown.
 - `app.go`: HTTP routes, validation, token handling, persistence, rate limiting, security headers, and cleanup.
 - `app_test.go`: unit and integration coverage for the backend, migrations, security behavior, and embedded static assets.
-- `index.html`, `styles.css`, `app.js`: browser UI and hash-based invite/status routing.
+- `index.html`, `styles.css`, `app.js`: browser UI, creator preview, and hash-based invite/status routing.
+- `service-worker.js`: tombstone worker that removes legacy PWA caches and unregisters itself.
+- `favicon.ico`, `favicon.svg`, `fonts/`: embedded icons and self-hosted font assets.
 - `migrations/`: ordered SQLite schema migrations.
 - `Dockerfile`: production build and runtime image.
 - `README.md`: user-facing setup and project overview.
@@ -30,7 +32,7 @@ Let's Go Out is a dependency-light invitation web app packaged as a single Go bi
 
 ## Database Migrations
 
-- Add migrations using the next zero-padded numeric prefix, such as `003_description.sql`.
+- Determine the next zero-padded numeric prefix from the highest existing migration. For example, if `004` is latest, add `005_description.sql`.
 - Never rewrite a migration that may already have been deployed. Add a new migration instead.
 - Migrations run transactionally and are embedded through the `//go:embed` directive in `main.go`.
 - Schema changes must preserve existing invite data and update record scanning, API behavior, and migration tests as needed.
@@ -41,10 +43,11 @@ Let's Go Out is a dependency-light invitation web app packaged as a single Go bi
 - Design and implement all UI changes mobile-first. Base styles must target narrow screens, with larger-screen enhancements added through `min-width` media queries.
 - Treat mobile layout and touch interaction as the primary experience; desktop layouts must progressively enhance it without changing core behavior.
 - The frontend is served directly from the embedded filesystem. A file is not available at runtime merely because it exists in the repository; it must also match the `//go:embed` patterns in `main.go`.
+- PWA support is intentionally disabled. Preserve the legacy cleanup in `app.js` and the unregistering tombstone in `service-worker.js`; do not add a manifest, worker registration, or fetch-cache handler unless deliberately restoring PWA support and updating the related tests and cache policy.
 - Keep DOM IDs and event bindings synchronized across `index.html` and `app.js`.
 - Keep browser-side validation aligned with backend limits and allowed values. The backend remains the authoritative validator.
 - Render user-provided values with safe DOM APIs such as `textContent`; do not introduce HTML interpolation for untrusted data.
-- When changing cacheable `app.js` or `styles.css`, update the corresponding cache-busting query version in `index.html`.
+- `index.html` is served with `no-cache`; all other static assets are cached for one day. When changing a referenced static asset, update its cache-busting query version or filename. This includes the `app.js`, `styles.css`, and favicon references in `index.html`, plus font URLs in `styles.css` when font bytes change.
 - Preserve keyboard usability, touch-friendly controls, loading states, and visible error feedback.
 
 ## Security and Privacy
@@ -87,4 +90,4 @@ When deployment behavior changes, verify the container build:
 docker build -t letsgoout .
 ```
 
-For frontend changes, manually exercise the create, share, invite, accepted-status, pending-status, unavailable, and delete flows. Start verification at a narrow mobile viewport, including touch-sized controls and long content, then verify the progressively enhanced desktop layout. Check keyboard navigation and the browser console for errors.
+For frontend changes, manually exercise create-form editing (including adding and removing custom ideas and time options), creator preview, link generation and sharing, invite response, accepted-invite revisiting, pending-status auto-refresh and error/offline handling, unavailable states, and deletion. Start verification at a narrow mobile viewport, including touch-sized controls and long content, then verify the progressively enhanced desktop layout. Check keyboard navigation and the browser console for errors.
