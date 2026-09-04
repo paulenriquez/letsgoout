@@ -5,14 +5,16 @@ A date invitation app, forked from [vantanferny/letsgoout](https://github.com/va
 ## How it works
 
 1. Create a personalized invite with date ideas and time options.
-2. Send the invite link so the recipient can choose a vibe and time, and optionally add a message for the sender (***fun fact:*** the recipient will be unable to click the "Decline" button 😉).
-3. Keep the private status link to view the response and optional recipient message, or permanently delete the invite.
+2. Share the invite link to the recipient so they can choose a vibe and time (***fun fact:*** the recipient will be unable to click the "Decline" button 😉).
+3. Use the private status link to view their response.
 
-## What changed
+## What's different?
 
-1. Replaced JSONBin and EmailJS with a self-hosted Go and SQLite backend.
-2. Added secure invite and status links with acceptance tracking, expiry, and deletion.
-3. Bundled the web app into a production-ready, non-root Docker container with security and rate limiting.
+Compared with the [original project](https://github.com/vantanferny/letsgoout), this fork introduces three major changes:
+
+1. Replaced EmailJS and JSONBin with a lightweight, self-hosted Go service backed by SQLite. Each invitation now generates an **invite link** for the recipient and a **private status link** for the sender to check the response.
+2. Added custom date ideas, allowing senders to personalize invitations beyond the built-in options.
+3. Updated the interface to support the new flow, including separate invite and status screens, revised mobile layouts, and a dedicated accepted-invite view.
 
 ## Run locally
 
