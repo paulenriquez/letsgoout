@@ -24,7 +24,7 @@ let previewMode = false;
 let previewSource = '';
 let celebrationTimer = 0;
 
-const celebrationEmojis = ['🎉', '🎊', '🥳', '✨', '💫', '⭐', '💖', '💘', '💕', '🌸'];
+const celebrationEmojis = ['😍'];
 
 const byID = (id) => document.getElementById(id);
 const allScreens = ['landing-page', 'asker-card', 'share-card', 'recipient-card', 'status-card', 'unavailable-card'];
@@ -467,20 +467,22 @@ function startCelebration() {
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const confetti = byID('celebration-confetti');
-    const pieceCount = window.innerWidth < 480 ? 48 : 72;
+    const pieceCount = window.innerWidth < 480 ? 120 : 180;
+    const immediatePieceCount = window.innerWidth < 480 ? 72 : 108;
     for (let index = 0; index < pieceCount; index += 1) {
         const piece = makeElement('span', 'confetti-piece', celebrationEmojis[index % celebrationEmojis.length]);
         const isHeroPiece = index % 7 === 0;
+        const delay = index < immediatePieceCount ? Math.random() * 3.45 - 3 : 0.4 + Math.random() * 4.2;
         piece.setAttribute('aria-hidden', 'true');
         piece.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
         piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 50 - 25)}vw`);
         piece.style.setProperty('--confetti-spin', `${Math.round(Math.random() * 1080 - 540)}deg`);
-        piece.style.setProperty('--confetti-delay', `${(Math.random() * 5 - 4.2).toFixed(2)}s`);
-        piece.style.setProperty('--confetti-duration', `${(5.2 + Math.random() * 1.6).toFixed(2)}s`);
-        piece.style.setProperty('--confetti-size', `${(1.6 + Math.random() * 1.4 + (isHeroPiece ? 0.65 : 0)).toFixed(2)}rem`);
+        piece.style.setProperty('--confetti-delay', `${delay.toFixed(2)}s`);
+        piece.style.setProperty('--confetti-duration', `${(3.2 + Math.random() * 1.2).toFixed(2)}s`);
+        piece.style.setProperty('--confetti-size', `${(2.25 + Math.random() * 1.75 + (isHeroPiece ? 0.9 : 0)).toFixed(2)}rem`);
         confetti.appendChild(piece);
     }
-    celebrationTimer = window.setTimeout(clearCelebration, 8000);
+    celebrationTimer = window.setTimeout(clearCelebration, 9400);
 }
 
 function renderRecipientView(data, source = '') {

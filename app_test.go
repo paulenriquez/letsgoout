@@ -619,8 +619,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=20" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=20">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=23" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=23">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -675,7 +675,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"startCelebration", "clearCelebration", "window.innerWidth < 480 ? 48 : 72", "const isHeroPiece = index % 7 === 0", "Math.random() * 5 - 4.2", "window.setTimeout(clearCelebration, 8000)", "(prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"const celebrationEmojis = ['😍']", "startCelebration", "clearCelebration", "window.innerWidth < 480 ? 120 : 180", "window.innerWidth < 480 ? 72 : 108", "const isHeroPiece = index % 7 === 0", "index < immediatePieceCount ? Math.random() * 3.45 - 3 : 0.4 + Math.random() * 4.2", "3.2 + Math.random() * 1.2", "window.setTimeout(clearCelebration, 9400)", "(prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("accepted celebration behavior is missing marker %q", marker)
 		}
