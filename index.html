@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=8">
-    <script src="/app.js?v=9" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=11">
+    <script src="/app.js?v=11" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -29,8 +29,15 @@
             <input type="text" id="recipient-name" maxlength="60" placeholder="Taylor" autocomplete="off">
         </div>
         <div class="form-group">
+            <label for="sender-message">Personal Message (Optional)</label>
+            <textarea id="sender-message" maxlength="280" rows="3" placeholder="Write something just for them…"></textarea>
+            <div class="character-count"><span id="sender-message-count">0</span>/280</div>
+        </div>
+        <div class="form-group">
             <span class="form-label">Date Ideas (Pick Multiple)</span>
-            <div class="ideas-grid" id="ideas-wrapper"></div>
+            <div class="creator-ideas-list" id="ideas-wrapper"></div>
+            <div class="custom-ideas-list" id="custom-ideas-wrapper"></div>
+            <button type="button" class="add-slot-btn" id="add-custom-idea-trigger">+ Add Custom Date Idea</button>
         </div>
         <div class="form-group">
             <span class="form-label">Propose Date &amp; Time Options ⏰</span>
@@ -38,7 +45,7 @@
             <button class="add-slot-btn" id="add-slot-trigger">+ Add Another Date Option</button>
         </div>
         <p class="form-error hidden" id="create-error" role="alert"></p>
-        <button class="btn btn-primary" id="generate-btn">Generate Invite Links 🔗</button>
+        <button class="btn btn-primary" id="creator-preview-btn">Preview Invite 👀</button>
     </main>
 
     <main class="card hidden" id="share-card">
@@ -56,18 +63,26 @@
     </main>
 
     <main class="card hidden" id="recipient-card">
-        <button class="btn btn-secondary hidden preview-back-button" id="preview-back-btn">← Back to Links</button>
+        <div class="preview-toolbar hidden" id="preview-toolbar">
+            <span class="form-label">Invite Preview</span>
+            <p>Recipient controls are disabled in preview mode.</p>
+            <p class="form-error hidden" id="preview-error" role="alert"></p>
+            <div class="preview-actions">
+                <button class="btn btn-secondary preview-back-button" id="preview-back-btn">← Back</button>
+                <button class="btn btn-primary" id="preview-generate-btn">Generate Invite Links 🔗</button>
+            </div>
+        </div>
         <div class="header-illustration" id="recipient-emoji">✨</div>
         <h2 id="recipient-title">Hey! 💕</h2>
         <p id="recipient-subtitle">Pick your preferences:</p>
         <div class="selection-section-title recipient-form-part">1. Pick the Vibe</div>
         <div class="ideas-grid recipient-form-part" id="recipient-ideas-grid"></div>
-        <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
-        <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
         <div class="form-group hidden recipient-form-part" id="other-input-container">
             <label for="other-freeform">What do you prefer instead? ✨</label>
             <input type="text" id="other-freeform" maxlength="120" placeholder="e.g., Arcade &amp; bubble tea?">
         </div>
+        <div class="selection-section-title recipient-form-part">2. Pick the Time</div>
+        <div class="selection-list recipient-form-part" id="slots-selector-container"></div>
         <p class="form-error hidden" id="accept-error" role="alert"></p>
         <div class="proposal-actions recipient-form-part" id="action-wrapper">
             <button class="btn" id="yes-btn" disabled>Yes</button>

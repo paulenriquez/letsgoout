@@ -1,0 +1,2 @@
+ALTER TABLE invites ADD COLUMN custom_ideas TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE invites ADD COLUMN sender_message TEXT NOT NULL DEFAULT '';

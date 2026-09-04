@@ -11,17 +11,35 @@ const dateCatalog = [
     { id: 'run', label: 'Run', emoji: '🏃' },
     { id: 'any', label: 'Surprise Me!', emoji: '🎁' }
 ];
+const customIdeaEmojis = ['🍕', '🍜', '☕', '🥂', '🥩', '🏋️', '👟', '🏃', '🎁', '🎬', '🎨', '🎳', '🎤', '🎮', '🧺', '🌅', '🏖️', '🏛️', '📚', '🍦', '🧋', '🍣', '🌮', '🚲', '🧗', '🎭', '🎡', '🌿', '✨'];
 const ideaByID = new Map(dateCatalog.map((item) => [item.id, item]));
 const selectedIdeas = new Set();
 const recipientSelectedIdeas = new Set();
 let activeInviteData = null;
+let activeCreateRequest = null;
 let currentInvite = null;
 let currentInviteToken = '';
 let currentStatusToken = '';
 let previewMode = false;
+let previewSource = '';
 
 const byID = (id) => document.getElementById(id);
 const allScreens = ['landing-page', 'asker-card', 'share-card', 'recipient-card', 'status-card', 'unavailable-card'];
+
+function cleanupLegacyPWA() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+            .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+            .catch(() => {});
+    }
+    if ('caches' in window) {
+        window.caches.keys()
+            .then((keys) => Promise.all(keys.filter((key) => key.startsWith('letsgoout-')).map((key) => window.caches.delete(key))))
+            .catch(() => {});
+    }
+}
+
+cleanupLegacyPWA();
 
 function showScreen(id) {
     allScreens.forEach((screenID) => byID(screenID).classList.toggle('hidden', screenID !== id));
@@ -79,36 +97,51 @@ function isStringArray(value, min, max) {
     return Array.isArray(value) && value.length >= min && value.length <= max && value.every((item) => typeof item === 'string');
 }
 
+function isCustomIdea(item, requireID) {
+    return item && (!requireID || typeof item.id === 'string') && customIdeaEmojis.includes(item.emoji) &&
+        typeof item.title === 'string' && item.title.length > 0 && [...item.title].length <= 60;
+}
+
 function isInviteResponse(data) {
     return data && typeof data.asker_name === 'string' && typeof data.recipient_name === 'string' &&
-        isStringArray(data.offered_ideas, 1, 9) && data.offered_ideas.every((id) => ideaByID.has(id)) &&
+        isStringArray(data.offered_ideas, 0, 9) && data.offered_ideas.every((id) => ideaByID.has(id)) &&
+        Array.isArray(data.custom_ideas) && data.custom_ideas.every((item) => isCustomIdea(item, true)) &&
+        data.offered_ideas.length + data.custom_ideas.length > 0 && typeof data.sender_message === 'string' &&
+        [...data.sender_message].length <= 280 &&
         isStringArray(data.proposed_slots, 1, 5) &&
         data.proposed_slots.every((slot) => !Number.isNaN(Date.parse(slot))) && typeof data.expires_at === 'string';
 }
 
 function isCreateResponse(data) {
     return data && typeof data.invite_url === 'string' && typeof data.status_url === 'string' &&
-        typeof data.expires_at === 'string' && data.invite_url.startsWith(`${location.origin}/#/invite/`) &&
-        data.status_url.startsWith(`${location.origin}/#/status/`);
+        typeof data.expires_at === 'string' && data.invite_url.startsWith(`${location.origin}/?v=11#/invite/`) &&
+        data.status_url.startsWith(`${location.origin}/?v=11#/status/`);
 }
 
 function isStatusResponse(data) {
     if (!data || !['pending', 'accepted'].includes(data.status) || typeof data.asker_name !== 'string' ||
-        typeof data.recipient_name !== 'string' || !isStringArray(data.proposed_slots, 1, 5) || typeof data.expires_at !== 'string') return false;
+        typeof data.recipient_name !== 'string' || !Array.isArray(data.custom_ideas) ||
+        !data.custom_ideas.every((item) => isCustomIdea(item, true)) ||
+        !isStringArray(data.proposed_slots, 1, 5) || typeof data.expires_at !== 'string') return false;
     if (data.status === 'pending') return true;
+    const customIDs = new Set(data.custom_ideas.map((item) => item.id));
     return typeof data.accepted_at === 'string' && Array.isArray(data.selected_ideas) &&
-        data.selected_ideas.every((id) => ideaByID.has(id)) && typeof data.custom_idea === 'string' &&
+        data.selected_ideas.every((id) => ideaByID.has(id) || customIDs.has(id)) && typeof data.custom_idea === 'string' &&
         Number.isInteger(data.selected_slot_index) && data.selected_slot_index >= 0 &&
         data.selected_slot_index < data.proposed_slots.length;
 }
 
 function createIdeaCard(item, onClick, includeCheck = false) {
     const card = makeElement('div', 'idea-card');
-    card.tabIndex = 0;
-    card.setAttribute('role', 'button');
     if (includeCheck) card.appendChild(makeElement('div', 'badge-check', '✓'));
     card.appendChild(makeElement('div', 'emoji-icon', item.emoji));
-    card.appendChild(makeElement('span', '', item.label));
+    card.appendChild(makeElement('span', '', item.label || item.title));
+    if (!onClick) {
+        card.classList.add('preview-idea-card');
+        return card;
+    }
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
     const activate = () => onClick(card);
     card.addEventListener('click', activate);
     card.addEventListener('keydown', (event) => {
@@ -120,11 +153,70 @@ function createIdeaCard(item, onClick, includeCheck = false) {
 function setupCreatorIdeas() {
     const wrapper = byID('ideas-wrapper');
     dateCatalog.forEach((item) => {
-        wrapper.appendChild(createIdeaCard(item, (card) => {
-            if (selectedIdeas.has(item.id)) selectedIdeas.delete(item.id); else selectedIdeas.add(item.id);
-            card.classList.toggle('selected', selectedIdeas.has(item.id));
-        }));
+        const label = makeElement('label', 'creator-idea-option');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = item.id;
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) selectedIdeas.add(item.id); else selectedIdeas.delete(item.id);
+        });
+        label.append(checkbox, makeElement('span', 'creator-idea-emoji', item.emoji), makeElement('span', 'creator-idea-title', item.label));
+        wrapper.appendChild(label);
     });
+}
+
+function closeEmojiPalettes(except) {
+    document.querySelectorAll('.emoji-palette').forEach((palette) => {
+        if (palette !== except) {
+            palette.classList.add('hidden');
+            palette.parentElement.querySelector('.emoji-selector-button').setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+function createCustomIdeaRow() {
+    const wrapper = byID('custom-ideas-wrapper');
+    const row = makeElement('div', 'custom-idea-row');
+    const emojiButton = makeElement('button', 'emoji-selector-button', '✨');
+    emojiButton.type = 'button';
+    emojiButton.setAttribute('aria-label', 'Choose date idea emoji');
+    emojiButton.setAttribute('aria-expanded', 'false');
+    emojiButton.dataset.emoji = '✨';
+    const title = document.createElement('input');
+    title.type = 'text';
+    title.maxLength = 60;
+    title.placeholder = 'Date idea title';
+    title.setAttribute('aria-label', 'Custom date idea title');
+    const remove = makeElement('button', 'remove-custom-idea', '×');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove custom date idea');
+    const palette = makeElement('div', 'emoji-palette hidden');
+    palette.setAttribute('role', 'listbox');
+    customIdeaEmojis.forEach((emoji) => {
+        const choice = makeElement('button', 'emoji-choice', emoji);
+        choice.type = 'button';
+        choice.setAttribute('aria-label', `Use ${emoji}`);
+        choice.addEventListener('click', (event) => {
+            event.stopPropagation();
+            emojiButton.textContent = emoji;
+            emojiButton.dataset.emoji = emoji;
+            palette.classList.add('hidden');
+            emojiButton.setAttribute('aria-expanded', 'false');
+            title.focus();
+        });
+        palette.appendChild(choice);
+    });
+    emojiButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const willOpen = palette.classList.contains('hidden');
+        closeEmojiPalettes(palette);
+        palette.classList.toggle('hidden', !willOpen);
+        emojiButton.setAttribute('aria-expanded', String(willOpen));
+    });
+    remove.addEventListener('click', () => row.remove());
+    row.append(emojiButton, title, remove, palette);
+    wrapper.appendChild(row);
+    title.focus();
 }
 
 function localDateKey(date) {
@@ -212,30 +304,75 @@ function formatSlot(slot) {
     return new Date(slot).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-async function createInvite() {
-    const button = byID('generate-btn');
+function buildInviteDraft() {
     showError('create-error', '');
+    const customIdeas = [...document.querySelectorAll('.custom-idea-row')].map((row) => ({
+        emoji: row.querySelector('.emoji-selector-button').dataset.emoji,
+        title: row.querySelector('input[type="text"]').value.trim()
+    }));
     const request = {
         asker_name: byID('asker-name').value.trim(),
         recipient_name: byID('recipient-name').value.trim(),
         offered_ideas: [...selectedIdeas],
+        custom_ideas: customIdeas,
+        sender_message: byID('sender-message').value.trim(),
         proposed_slots: collectSlots()
     };
-    if (!request.asker_name || !request.recipient_name || request.offered_ideas.length === 0) {
-        showError('create-error', 'Add both names and pick at least one date idea.');
-        return;
+    if (!request.asker_name || !request.recipient_name) {
+        throw new Error('Add both names before previewing the invite.');
     }
+    if (customIdeas.some((idea) => !idea.title)) {
+        throw new Error('Add a title to every custom date idea or remove the unfinished row.');
+    }
+    const normalizedTitles = customIdeas.map((idea) => idea.title.toLocaleLowerCase());
+    if (new Set(normalizedTitles).size !== normalizedTitles.length) {
+        throw new Error('Custom date idea titles must be unique.');
+    }
+    if (request.offered_ideas.length + customIdeas.length === 0) {
+        throw new Error('Pick or add at least one date idea.');
+    }
+    if ([...request.sender_message].length > 280) {
+        throw new Error('Your personal message must not exceed 280 characters.');
+    }
+    if (new Set(request.proposed_slots).size !== request.proposed_slots.length) {
+        throw new Error('Choose different date and time options.');
+    }
+    if (new TextEncoder().encode(JSON.stringify(request)).length > 8 * 1024) {
+        throw new Error('This invite is too large. Remove some custom date ideas or shorten their titles.');
+    }
+    const preview = {
+        ...request,
+        custom_ideas: customIdeas.map((idea, index) => ({ id: `custom:${index}`, ...idea }))
+    };
+    return { request, preview };
+}
+
+function previewDraft() {
+    try {
+        const draft = buildInviteDraft();
+        activeCreateRequest = draft.request;
+        activeInviteData = draft.preview;
+        renderRecipientView(activeInviteData, 'draft');
+    } catch (error) {
+        showError('create-error', error.message);
+    }
+}
+
+async function createInvite() {
+    if (!activeCreateRequest || previewSource !== 'draft') return;
+    const button = byID('preview-generate-btn');
+    showError('preview-error', '');
     button.disabled = true;
     button.textContent = 'Generating links… ⏳';
     try {
-        const result = await postJSON('/api/invites', request);
+        const result = await postJSON('/api/invites', activeCreateRequest);
         if (!isCreateResponse(result)) throw new APIError(0, 'The server returned an invalid response.');
-        activeInviteData = { ...request, expires_at: result.expires_at };
+        activeInviteData = { ...activeInviteData, expires_at: result.expires_at };
         byID('generated-invite-url').textContent = result.invite_url;
         byID('generated-status-url').textContent = result.status_url;
         showScreen('share-card');
     } catch (error) {
-        showError('create-error', error.message || 'Could not generate the links. Please try again.');
+        showError('preview-error', error.message || 'Could not generate the links. Please try again.');
     } finally {
         button.disabled = false;
         button.textContent = 'Generate Invite Links 🔗';
@@ -255,43 +392,61 @@ async function copyLink(sourceID, buttonID, defaultText) {
 }
 
 function updateAcceptButton() {
+    if (previewMode) {
+        byID('yes-btn').disabled = true;
+        return;
+    }
     const pickedTime = document.querySelector('input[name="time-radio"]:checked');
     const hasOffered = [...recipientSelectedIdeas].some((id) => id !== 'other');
     const hasCustom = recipientSelectedIdeas.has('other') && byID('other-freeform').value.trim().length > 0;
     byID('yes-btn').disabled = !pickedTime || (!hasOffered && !hasCustom);
 }
 
-function renderRecipientView(data, isPreview) {
+function renderRecipientView(data, source = '') {
     currentInvite = data;
-    previewMode = isPreview;
+    previewMode = Boolean(source);
+    previewSource = source;
     recipientSelectedIdeas.clear();
+    const recipientCard = byID('recipient-card');
+    recipientCard.classList.toggle('preview-read-only', previewMode);
     byID('recipient-emoji').textContent = '✨';
     byID('recipient-title').textContent = `Hey ${data.recipient_name}! 💕`;
-	byID('recipient-subtitle').textContent = `${data.asker_name} wants to take you out! Pick your ideal date:`;
-	byID('other-freeform').value = '';
-	showError('accept-error', '');
-	document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.remove('hidden'));
-	byID('other-input-container').classList.add('hidden');
+    byID('recipient-subtitle').textContent = data.sender_message || `${data.asker_name} wants to take you out! Pick your ideal date:`;
+    byID('other-freeform').value = '';
+    showError('accept-error', '');
+    showError('preview-error', '');
+    document.querySelectorAll('.recipient-form-part').forEach((el) => el.classList.remove('hidden'));
+    byID('other-input-container').classList.add('hidden');
 
     const ideasGrid = byID('recipient-ideas-grid');
     ideasGrid.replaceChildren();
     data.offered_ideas.forEach((id) => {
         const item = ideaByID.get(id);
-        ideasGrid.appendChild(createIdeaCard(item, (card) => {
+        const selectIdea = previewMode ? null : (card) => {
             if (recipientSelectedIdeas.has(id)) recipientSelectedIdeas.delete(id); else recipientSelectedIdeas.add(id);
             card.classList.toggle('selected', recipientSelectedIdeas.has(id));
             updateAcceptButton();
-        }, true));
+        };
+        ideasGrid.appendChild(createIdeaCard(item, selectIdea, !previewMode));
+    });
+    data.custom_ideas.forEach((item) => {
+        const selectIdea = previewMode ? null : (card) => {
+            if (recipientSelectedIdeas.has(item.id)) recipientSelectedIdeas.delete(item.id); else recipientSelectedIdeas.add(item.id);
+            card.classList.toggle('selected', recipientSelectedIdeas.has(item.id));
+            updateAcceptButton();
+        };
+        ideasGrid.appendChild(createIdeaCard(item, selectIdea, !previewMode));
     });
     const other = { id: 'other', label: 'Other...', emoji: '🤔' };
-    ideasGrid.appendChild(createIdeaCard(other, (card) => {
+    const selectOther = previewMode ? null : (card) => {
         if (recipientSelectedIdeas.has('other')) recipientSelectedIdeas.delete('other'); else recipientSelectedIdeas.add('other');
         const selected = recipientSelectedIdeas.has('other');
         card.classList.toggle('selected', selected);
         byID('other-input-container').classList.toggle('hidden', !selected);
         window.requestAnimationFrame(setupInitialNoButtonPosition);
         updateAcceptButton();
-    }, true));
+    };
+    ideasGrid.appendChild(createIdeaCard(other, selectOther, !previewMode));
 
     const slotsContainer = byID('slots-selector-container');
     slotsContainer.replaceChildren();
@@ -299,19 +454,25 @@ function renderRecipientView(data, isPreview) {
         const label = makeElement('label', 'select-item');
         const radio = document.createElement('input');
         radio.type = 'radio'; radio.name = 'time-radio'; radio.value = String(index);
+        radio.disabled = previewMode;
         label.append(radio, makeElement('span', '', formatSlot(slot)));
-        radio.addEventListener('change', () => {
-            slotsContainer.querySelectorAll('.select-item').forEach((el) => el.classList.remove('selected'));
-            label.classList.add('selected');
-            updateAcceptButton();
-        });
+        if (!previewMode) {
+            radio.addEventListener('change', () => {
+                slotsContainer.querySelectorAll('.select-item').forEach((el) => el.classList.remove('selected'));
+                label.classList.add('selected');
+                updateAcceptButton();
+            });
+        }
         slotsContainer.appendChild(label);
     });
-    byID('preview-back-btn').classList.toggle('hidden', !isPreview);
+    byID('preview-toolbar').classList.toggle('hidden', !previewMode);
+    byID('preview-back-btn').textContent = source === 'draft' ? '← Back to Edit' : '← Back to Links';
+    byID('preview-generate-btn').classList.toggle('hidden', source !== 'draft');
+    byID('no-btn').disabled = previewMode;
     prepareNoButtonPosition();
     showScreen('recipient-card');
     updateAcceptButton();
-    window.requestAnimationFrame(setupInitialNoButtonPosition);
+    if (!previewMode) window.requestAnimationFrame(setupInitialNoButtonPosition);
 }
 
 function renderAccepted(selectedLabels, customIdea, slotLabel) {
@@ -327,16 +488,13 @@ function renderAccepted(selectedLabels, customIdea, slotLabel) {
 }
 
 async function acceptInvite() {
+    if (previewMode) return;
     const selectedTime = document.querySelector('input[name="time-radio"]:checked');
     if (!selectedTime || byID('yes-btn').disabled) return;
     const selectedIDs = [...recipientSelectedIdeas].filter((id) => id !== 'other');
     const customIdea = recipientSelectedIdeas.has('other') ? byID('other-freeform').value.trim() : '';
     const slotIndex = Number(selectedTime.value);
-    const labels = selectedIDs.map((id) => ideaByID.get(id).label);
-    if (previewMode) {
-        renderAccepted(labels, customIdea, formatSlot(currentInvite.proposed_slots[slotIndex]));
-        return;
-    }
+    const labels = selectedIDs.map((id) => ideaLabel(id, currentInvite.custom_ideas));
     const button = byID('yes-btn');
     button.disabled = true;
     showError('accept-error', '');
@@ -361,6 +519,13 @@ function addStatusRow(parent, label, value) {
     parent.appendChild(row);
 }
 
+function ideaLabel(id, customIdeas) {
+    const builtIn = ideaByID.get(id);
+    if (builtIn) return builtIn.label;
+    const custom = customIdeas.find((item) => item.id === id);
+    return custom ? custom.title : id;
+}
+
 function renderStatus(data) {
     const details = byID('status-details');
     details.replaceChildren();
@@ -372,7 +537,7 @@ function renderStatus(data) {
     } else {
         byID('status-emoji').textContent = '🎉✨';
         byID('status-summary').textContent = "It's a date! Here's the accepted plan:";
-        const labels = data.selected_ideas.map((id) => ideaByID.get(id).label);
+        const labels = data.selected_ideas.map((id) => ideaLabel(id, data.custom_ideas));
         if (data.custom_idea) labels.push(data.custom_idea);
         addStatusRow(details, 'Vibe', labels.join(' & '));
         addStatusRow(details, 'Time', formatSlot(data.proposed_slots[data.selected_slot_index]));
@@ -425,7 +590,7 @@ async function loadInvite(token) {
     try {
         const data = await postJSON('/api/invites/view', { token });
         if (!isInviteResponse(data)) throw new APIError(0, 'The server returned an invalid response.');
-        renderRecipientView(data, false);
+        renderRecipientView(data);
     } catch (error) {
         byID('unavailable-card').querySelector('p').textContent = error.status === 404
             ? 'This invite link does not exist, has expired, or was deleted.'
@@ -492,12 +657,17 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNoButton();
     byID('start-btn').addEventListener('click', () => showScreen('asker-card'));
     byID('add-slot-trigger').addEventListener('click', createCustomPickerRow);
-    byID('generate-btn').addEventListener('click', createInvite);
+    byID('add-custom-idea-trigger').addEventListener('click', createCustomIdeaRow);
+    byID('creator-preview-btn').addEventListener('click', previewDraft);
+    byID('preview-generate-btn').addEventListener('click', createInvite);
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
     byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Status Link 🔒'));
-    byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, true));
+    byID('preview-btn').addEventListener('click', () => renderRecipientView(activeInviteData, 'links'));
     byID('share-back-btn').addEventListener('click', () => showScreen('asker-card'));
-    byID('preview-back-btn').addEventListener('click', () => showScreen('share-card'));
+    byID('preview-back-btn').addEventListener('click', () => showScreen(previewSource === 'draft' ? 'asker-card' : 'share-card'));
+    byID('sender-message').addEventListener('input', () => {
+        byID('sender-message-count').textContent = String([...byID('sender-message').value].length);
+    });
     byID('other-freeform').addEventListener('input', updateAcceptButton);
     byID('yes-btn').addEventListener('click', acceptInvite);
     byID('status-refresh-btn').addEventListener('click', refreshStatus);
@@ -509,6 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('asker-card');
     });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
+    document.addEventListener('click', () => closeEmojiPalettes());
     window.addEventListener('online', refreshStatus);
     window.setInterval(refreshStatus, 15000);
     window.addEventListener('hashchange', routeFromHash);

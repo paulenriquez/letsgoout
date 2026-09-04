@@ -86,6 +86,9 @@ func createTokens(t *testing.T, handler http.Handler, now time.Time, input creat
 		ExpiresAt string `json:"expires_at"`
 	}
 	decodeResponse(t, response, &result)
+	if !strings.HasPrefix(result.InviteURL, testOrigin+"/?v="+appShellVersion+"#/invite/") || !strings.HasPrefix(result.StatusURL, testOrigin+"/?v="+appShellVersion+"#/status/") {
+		t.Fatalf("generated URLs do not bypass legacy app-shell caches: %+v", result)
+	}
 	inviteParts := strings.Split(result.InviteURL, "/")
 	statusParts := strings.Split(result.StatusURL, "/")
 	expires, err := time.Parse(time.RFC3339, result.ExpiresAt)
@@ -138,11 +141,21 @@ func TestValidation(t *testing.T) {
 		}},
 		{"bad slot", func(r *createRequest) { r.ProposedSlots = []string{"tomorrow"} }},
 		{"too many slots", func(r *createRequest) { r.ProposedSlots = []string{"1", "2", "3", "4", "5", "6"} }},
+		{"invalid custom emoji", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🌙", Title: "Moonlight"}} }},
+		{"empty custom title", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: " "}} }},
+		{"long custom title", func(r *createRequest) {
+			r.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: strings.Repeat("界", 61)}}
+		}},
+		{"duplicate custom title", func(r *createRequest) {
+			r.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: "Movie"}, {Emoji: "🎨", Title: " movie "}}
+		}},
+		{"long sender message", func(r *createRequest) { r.SenderMessage = strings.Repeat("界", 281) }},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			copy := valid
 			copy.OfferedIdeas = append([]string(nil), valid.OfferedIdeas...)
+			copy.CustomIdeas = append([]customIdeaInput(nil), valid.CustomIdeas...)
 			copy.ProposedSlots = append([]string(nil), valid.ProposedSlots...)
 			tc.mutate(&copy)
 			if err := validateCreate(copy, now); err == nil {
@@ -150,14 +163,22 @@ func TestValidation(t *testing.T) {
 			}
 		})
 	}
-	rec := inviteRecord{OfferedIdeas: []string{"pizza"}, ProposedSlots: []string{"slot"}}
+	customOnly := valid
+	customOnly.OfferedIdeas = nil
+	customOnly.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: " Movie night "}}
+	customOnly.SenderMessage = " A personal note\nwith two lines. "
+	if err := validateCreate(customOnly, now); err != nil {
+		t.Fatalf("custom-only invite rejected: %v", err)
+	}
+	rec := inviteRecord{OfferedIdeas: []string{"pizza"}, CustomIdeas: []customIdea{{ID: "custom:0", Emoji: "🎬", Title: "Movie"}}, ProposedSlots: []string{"slot"}}
 	zero, one := 0, 1
 	for name, input := range map[string]acceptRequest{
-		"empty":        {SelectedSlotIndex: &zero},
-		"unknown idea": {SelectedIdeas: []string{"ramen"}, SelectedSlotIndex: &zero},
-		"duplicate":    {SelectedIdeas: []string{"pizza", "pizza"}, SelectedSlotIndex: &zero},
-		"bad slot":     {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &one},
-		"long custom":  {CustomIdea: strings.Repeat("界", 121), SelectedSlotIndex: &zero},
+		"empty":               {SelectedSlotIndex: &zero},
+		"unknown idea":        {SelectedIdeas: []string{"ramen"}, SelectedSlotIndex: &zero},
+		"unknown custom idea": {SelectedIdeas: []string{"custom:1"}, SelectedSlotIndex: &zero},
+		"duplicate":           {SelectedIdeas: []string{"pizza", "pizza"}, SelectedSlotIndex: &zero},
+		"bad slot":            {SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &one},
+		"long custom":         {CustomIdea: strings.Repeat("界", 121), SelectedSlotIndex: &zero},
 	} {
 		t.Run("accept "+name, func(t *testing.T) {
 			if validateAcceptance(input, rec) == nil {
@@ -166,6 +187,9 @@ func TestValidation(t *testing.T) {
 		})
 	}
 	if err := validateAcceptance(acceptRequest{CustomIdea: "Arcade", SelectedSlotIndex: &zero}, rec); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAcceptance(acceptRequest{SelectedIdeas: []string{"custom:0"}, SelectedSlotIndex: &zero}, rec); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -224,6 +248,7 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 		t.Fatal(err)
 	}
 	if record.AskerName != "Alex" || record.RecipientName != "Taylor" || len(record.OfferedIdeas) != 1 || record.OfferedIdeas[0] != "pizza" ||
+		len(record.CustomIdeas) != 0 || record.SenderMessage != "" ||
 		len(record.ProposedSlots) != 1 || record.ProposedSlots[0] != "2030-01-02T14:00:00Z" || record.AcceptedAt == nil || !record.AcceptedAt.Equal(acceptedAt) ||
 		!record.ExpiresAt.Equal(expiresAt) || len(record.SelectedIdeas) != 1 || record.SelectedIdeas[0] != "pizza" || record.CustomIdea != "Arcade" ||
 		record.SelectedSlotIndex == nil || *record.SelectedSlotIndex != 0 {
@@ -264,7 +289,10 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	now := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
 	a := testApp(t, &now)
 	handler := a.routes()
-	inviteToken, statusToken, initialExpiry := createTokens(t, handler, now, validCreate(now))
+	input := validCreate(now)
+	input.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: " Movie night "}}
+	input.SenderMessage = " Dinner first?\nThen a movie! "
+	inviteToken, statusToken, initialExpiry := createTokens(t, handler, now, input)
 	if !initialExpiry.Equal(now.Add(initialLifetime)) {
 		t.Fatalf("initial expiry = %v", initialExpiry)
 	}
@@ -287,13 +315,21 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 	if _, present := invite["pronoun"]; present {
 		t.Fatal("recipient response contains removed pronoun field")
 	}
+	customIdeas, ok := invite["custom_ideas"].([]any)
+	if !ok || len(customIdeas) != 1 || invite["sender_message"] != strings.TrimSpace(input.SenderMessage) {
+		t.Fatalf("missing invite customization: %#v", invite)
+	}
+	customObject, ok := customIdeas[0].(map[string]any)
+	if !ok || customObject["id"] != "custom:0" || customObject["emoji"] != "🎬" || customObject["title"] != "Movie night" {
+		t.Fatalf("bad custom idea: %#v", customIdeas[0])
+	}
 
 	invalidAccept := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken})
 	if invalidAccept.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid accept = %d", invalidAccept.Code)
 	}
 	index := 1
-	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee"}, CustomIdea: "Arcade", SelectedSlotIndex: &index})
+	accepted := request(t, handler, http.MethodPost, "/api/invites/accept", acceptRequest{Token: inviteToken, SelectedIdeas: []string{"coffee", "custom:0"}, CustomIdea: "Arcade", SelectedSlotIndex: &index})
 	if accepted.Code != http.StatusOK {
 		t.Fatalf("accept status %d: %s", accepted.Code, accepted.Body.String())
 	}
@@ -315,14 +351,16 @@ func TestAPIIntegrationLifecycle(t *testing.T) {
 		t.Fatalf("status = %d: %s", status.Code, status.Body.String())
 	}
 	var statusResult struct {
-		Status            string   `json:"status"`
-		SelectedIdeas     []string `json:"selected_ideas"`
-		CustomIdea        string   `json:"custom_idea"`
-		SelectedSlotIndex int      `json:"selected_slot_index"`
-		ExpiresAt         string   `json:"expires_at"`
+		Status            string       `json:"status"`
+		SelectedIdeas     []string     `json:"selected_ideas"`
+		CustomIdeas       []customIdea `json:"custom_ideas"`
+		CustomIdea        string       `json:"custom_idea"`
+		SelectedSlotIndex int          `json:"selected_slot_index"`
+		ExpiresAt         string       `json:"expires_at"`
 	}
 	decodeResponse(t, status, &statusResult)
-	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 1 {
+	if statusResult.Status != "accepted" || statusResult.CustomIdea != "Arcade" || statusResult.SelectedSlotIndex != 1 || len(statusResult.SelectedIdeas) != 2 ||
+		len(statusResult.CustomIdeas) != 1 || statusResult.CustomIdeas[0].ID != "custom:0" {
 		t.Fatalf("bad status: %+v", statusResult)
 	}
 
@@ -505,6 +543,8 @@ func TestXSSFieldsAreJSONEscapedAndRoundTrip(t *testing.T) {
 	input := validCreate(now)
 	input.AskerName = payload
 	input.RecipientName = `<script>alert(2)</script>`
+	input.SenderMessage = payload
+	input.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: payload}}
 	inviteToken, statusToken, _ := createTokens(t, handler, now, input)
 	view := request(t, handler, http.MethodPost, "/api/invites/view", tokenRequest{Token: inviteToken})
 	if bytes.Contains(view.Body.Bytes(), []byte("<script")) || bytes.Contains(view.Body.Bytes(), []byte("<img")) {
@@ -512,7 +552,7 @@ func TestXSSFieldsAreJSONEscapedAndRoundTrip(t *testing.T) {
 	}
 	var data createRequest
 	decodeResponse(t, view, &data)
-	if data.AskerName != payload || data.RecipientName != input.RecipientName {
+	if data.AskerName != payload || data.RecipientName != input.RecipientName || data.SenderMessage != payload || len(data.CustomIdeas) != 1 || data.CustomIdeas[0].Title != payload {
 		t.Fatal("text did not round-trip")
 	}
 	index := 0
@@ -535,7 +575,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=9" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=11" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=11">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -564,13 +605,25 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if strings.Contains(clientText, ".pronoun") || !strings.Contains(clientText, "wants to take you out! Pick your ideal date:") {
 		t.Fatal("client still depends on pronouns or is missing neutral invite copy")
 	}
-	for _, marker := range []string{"serviceWorker", "setupInstallPrompt", "beforeinstallprompt", "appinstalled"} {
+	for _, marker := range []string{"creator-preview-btn", "preview-generate-btn", "custom_ideas", "sender_message"} {
+		if !strings.Contains(clientText, marker) && !strings.Contains(index.Body.String(), marker) {
+			t.Fatalf("custom invite UI is missing marker %q", marker)
+		}
+	}
+	if strings.Contains(clientText, "serviceWorker.register") || !strings.Contains(clientText, "serviceWorker.getRegistrations") {
+		t.Fatal("client does not clean up legacy service workers")
+	}
+	for _, marker := range []string{"setupInstallPrompt", "beforeinstallprompt", "appinstalled"} {
 		if strings.Contains(clientText, marker) {
 			t.Fatalf("client still contains PWA marker %q", marker)
 		}
 	}
+	tombstone := request(t, handler, http.MethodGet, "/service-worker.js", nil)
+	if tombstone.Code != http.StatusOK || !strings.Contains(tombstone.Body.String(), "registration.unregister") || strings.Contains(tombstone.Body.String(), "addEventListener('fetch'") {
+		t.Fatalf("legacy service worker tombstone is missing or unsafe: %d %s", tombstone.Code, tombstone.Body.String())
+	}
 	for _, asset := range []string{
-		"/service-worker.js", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
+		"/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
 		"/icon-maskable-512.png", "/apple-touch-icon.png", "/icon.svg", "/icon-maskable.svg",
 	} {
 		response := request(t, handler, http.MethodGet, asset, nil)

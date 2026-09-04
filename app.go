@@ -24,15 +24,25 @@ import (
 )
 
 const (
-	maxRequestBody   = 8 << 10
-	initialLifetime  = 7 * 24 * time.Hour
-	extendedLifetime = 7 * 24 * time.Hour
+	maxRequestBody     = 8 << 10
+	initialLifetime    = 7 * 24 * time.Hour
+	extendedLifetime   = 7 * 24 * time.Hour
+	maxCustomIdeaTitle = 60
+	maxSenderMessage   = 280
+	appShellVersion    = "11"
 )
 
 var (
 	validIdeas = map[string]bool{
 		"pizza": true, "ramen": true, "coffee": true, "drinks": true,
 		"steak": true, "gym": true, "walk": true, "run": true, "any": true,
+	}
+	validCustomIdeaEmojis = map[string]bool{
+		"🍕": true, "🍜": true, "☕": true, "🥂": true, "🥩": true, "🏋️": true,
+		"👟": true, "🏃": true, "🎁": true, "🎬": true, "🎨": true, "🎳": true,
+		"🎤": true, "🎮": true, "🧺": true, "🌅": true, "🏖️": true, "🏛️": true,
+		"📚": true, "🍦": true, "🧋": true, "🍣": true, "🌮": true, "🚲": true,
+		"🧗": true, "🎭": true, "🎡": true, "🌿": true, "✨": true,
 	}
 )
 
@@ -104,10 +114,23 @@ func (a *app) staticHandler() http.Handler {
 }
 
 type createRequest struct {
-	AskerName     string   `json:"asker_name"`
-	RecipientName string   `json:"recipient_name"`
-	OfferedIdeas  []string `json:"offered_ideas"`
-	ProposedSlots []string `json:"proposed_slots"`
+	AskerName     string            `json:"asker_name"`
+	RecipientName string            `json:"recipient_name"`
+	OfferedIdeas  []string          `json:"offered_ideas"`
+	CustomIdeas   []customIdeaInput `json:"custom_ideas"`
+	SenderMessage string            `json:"sender_message"`
+	ProposedSlots []string          `json:"proposed_slots"`
+}
+
+type customIdeaInput struct {
+	Emoji string `json:"emoji"`
+	Title string `json:"title"`
+}
+
+type customIdea struct {
+	ID    string `json:"id"`
+	Emoji string `json:"emoji"`
+	Title string `json:"title"`
 }
 
 type tokenRequest struct {
@@ -126,6 +149,8 @@ type inviteRecord struct {
 	AskerName         string
 	RecipientName     string
 	OfferedIdeas      []string
+	CustomIdeas       []customIdea
+	SenderMessage     string
 	ProposedSlots     []string
 	CreatedAt         time.Time
 	AcceptedAt        *time.Time
@@ -170,6 +195,7 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ideasJSON, _ := json.Marshal(req.OfferedIdeas)
+	customIdeasJSON, _ := json.Marshal(normalizeCustomIdeas(req.CustomIdeas))
 	slotsJSON, _ := json.Marshal(req.ProposedSlots)
 	expires := now.Add(initialLifetime)
 
@@ -186,8 +212,8 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO invites (
 			recipient_token_hash, status_token_hash, asker_name, recipient_name,
-			offered_ideas, proposed_slots, created_at, expires_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], strings.TrimSpace(req.AskerName), strings.TrimSpace(req.RecipientName), ideasJSON, slotsJSON, now.Unix(), expires.Unix())
+			offered_ideas, custom_ideas, sender_message, proposed_slots, created_at, expires_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], strings.TrimSpace(req.AskerName), strings.TrimSpace(req.RecipientName), ideasJSON, customIdeasJSON, strings.TrimSpace(req.SenderMessage), slotsJSON, now.Unix(), expires.Unix())
 	}
 	if err == nil && !a.cfg.DisableRateLimits {
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO creation_events(ip_hash, created_at) VALUES (?, ?)`, ipHash, now.Unix())
@@ -205,8 +231,8 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"invite_url": a.cfg.PublicBaseURL + "/#/invite/" + recipientToken,
-		"status_url": a.cfg.PublicBaseURL + "/#/status/" + statusToken,
+		"invite_url": a.cfg.PublicBaseURL + "/?v=" + appShellVersion + "#/invite/" + recipientToken,
+		"status_url": a.cfg.PublicBaseURL + "/?v=" + appShellVersion + "#/status/" + statusToken,
 		"expires_at": expires.Format(time.RFC3339),
 	})
 }
@@ -230,7 +256,8 @@ func (a *app) handleInviteView(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"asker_name": record.AskerName, "recipient_name": record.RecipientName,
-		"offered_ideas": record.OfferedIdeas, "proposed_slots": record.ProposedSlots,
+		"offered_ideas": record.OfferedIdeas, "custom_ideas": record.CustomIdeas,
+		"sender_message": record.SenderMessage, "proposed_slots": record.ProposedSlots,
 		"expires_at": record.ExpiresAt.Format(time.RFC3339),
 	})
 }
@@ -303,7 +330,8 @@ func (a *app) handleStatusView(w http.ResponseWriter, r *http.Request) {
 	}
 	response := map[string]any{
 		"status": "pending", "asker_name": record.AskerName, "recipient_name": record.RecipientName,
-		"proposed_slots": record.ProposedSlots, "expires_at": record.ExpiresAt.Format(time.RFC3339),
+		"custom_ideas": record.CustomIdeas, "proposed_slots": record.ProposedSlots,
+		"expires_at": record.ExpiresAt.Format(time.RFC3339),
 	}
 	if record.AcceptedAt != nil {
 		response["status"] = "accepted"
@@ -363,18 +391,18 @@ func (a *app) findInvite(ctx context.Context, column, token string) (inviteRecor
 	if !ok {
 		return inviteRecord{}, sql.ErrNoRows
 	}
-	query := `SELECT id, asker_name, recipient_name, offered_ideas, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
+	query := `SELECT id, asker_name, recipient_name, offered_ideas, custom_ideas, sender_message, proposed_slots, created_at, accepted_at, expires_at, selected_ideas, custom_idea, selected_slot_index FROM invites WHERE ` + column + ` = ? AND expires_at > ?`
 	var rec inviteRecord
-	var ideasJSON, slotsJSON string
+	var ideasJSON, customIdeasJSON, slotsJSON string
 	var created, expires int64
 	var accepted sql.NullInt64
 	var selectedJSON, custom sql.NullString
 	var slotIndex sql.NullInt64
-	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &ideasJSON, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex)
+	err := a.db.QueryRowContext(ctx, query, hash[:], a.now().UTC().Unix()).Scan(&rec.ID, &rec.AskerName, &rec.RecipientName, &ideasJSON, &customIdeasJSON, &rec.SenderMessage, &slotsJSON, &created, &accepted, &expires, &selectedJSON, &custom, &slotIndex)
 	if err != nil {
 		return inviteRecord{}, err
 	}
-	if json.Unmarshal([]byte(ideasJSON), &rec.OfferedIdeas) != nil || json.Unmarshal([]byte(slotsJSON), &rec.ProposedSlots) != nil {
+	if json.Unmarshal([]byte(ideasJSON), &rec.OfferedIdeas) != nil || json.Unmarshal([]byte(customIdeasJSON), &rec.CustomIdeas) != nil || json.Unmarshal([]byte(slotsJSON), &rec.ProposedSlots) != nil {
 		return inviteRecord{}, errors.New("corrupt invite")
 	}
 	rec.CreatedAt = time.Unix(created, 0).UTC()
@@ -400,8 +428,11 @@ func validateCreate(req createRequest, now time.Time) error {
 	if !validName(req.AskerName) || !validName(req.RecipientName) {
 		return errors.New("names must be between 1 and 60 characters")
 	}
-	if len(req.OfferedIdeas) < 1 || len(req.OfferedIdeas) > len(validIdeas) {
+	if len(req.OfferedIdeas) == 0 && len(req.CustomIdeas) == 0 {
 		return errors.New("choose at least one valid date idea")
+	}
+	if len(req.OfferedIdeas) > len(validIdeas) {
+		return errors.New("choose only valid date ideas")
 	}
 	seenIdeas := make(map[string]bool)
 	for _, idea := range req.OfferedIdeas {
@@ -409,6 +440,25 @@ func validateCreate(req createRequest, now time.Time) error {
 			return errors.New("date ideas must be valid and unique")
 		}
 		seenIdeas[idea] = true
+	}
+	seenCustomTitles := make(map[string]bool)
+	for _, idea := range req.CustomIdeas {
+		title := strings.TrimSpace(idea.Title)
+		if !validCustomIdeaEmojis[idea.Emoji] {
+			return errors.New("custom date ideas must use an available emoji")
+		}
+		if !utf8.ValidString(title) || utf8.RuneCountInString(title) < 1 || utf8.RuneCountInString(title) > maxCustomIdeaTitle {
+			return errors.New("custom date idea titles must be between 1 and 60 characters")
+		}
+		key := strings.ToLower(title)
+		if seenCustomTitles[key] {
+			return errors.New("custom date idea titles must be unique")
+		}
+		seenCustomTitles[key] = true
+	}
+	message := strings.TrimSpace(req.SenderMessage)
+	if !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxSenderMessage {
+		return errors.New("sender message must not exceed 280 characters")
 	}
 	if len(req.ProposedSlots) < 1 || len(req.ProposedSlots) > 5 {
 		return errors.New("provide between one and five times")
@@ -434,7 +484,7 @@ func validateAcceptance(req acceptRequest, rec inviteRecord) error {
 	}
 	seen := make(map[string]bool)
 	for _, idea := range req.SelectedIdeas {
-		if seen[idea] || !slices.Contains(rec.OfferedIdeas, idea) {
+		if seen[idea] || !inviteOffersIdea(rec, idea) {
 			return errors.New("selected ideas must match the invitation")
 		}
 		seen[idea] = true
@@ -443,6 +493,21 @@ func validateAcceptance(req acceptRequest, rec inviteRecord) error {
 		return errors.New("choose exactly one offered time")
 	}
 	return nil
+}
+
+func normalizeCustomIdeas(inputs []customIdeaInput) []customIdea {
+	ideas := make([]customIdea, len(inputs))
+	for i, idea := range inputs {
+		ideas[i] = customIdea{ID: fmt.Sprintf("custom:%d", i), Emoji: idea.Emoji, Title: strings.TrimSpace(idea.Title)}
+	}
+	return ideas
+}
+
+func inviteOffersIdea(rec inviteRecord, id string) bool {
+	if slices.Contains(rec.OfferedIdeas, id) {
+		return true
+	}
+	return slices.ContainsFunc(rec.CustomIdeas, func(idea customIdea) bool { return idea.ID == id })
 }
 
 func validName(value string) bool {
