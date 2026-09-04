@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=44" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=37">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=45" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=40">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -718,6 +718,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("automatic status refresh is missing marker %q", marker)
 		}
 	}
+	for _, marker := range []string{"summary.textContent = 'Still waiting for a response.'", "summary.classList.add('status-summary-pending')", "summary.classList.remove('status-summary-pending')"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("pending status emphasis is missing marker %q", marker)
+		}
+	}
 	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "status-invite-box').addEventListener('click', () => copyLink('status-invite-url'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
@@ -749,7 +754,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".status-summary-pending::before", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}

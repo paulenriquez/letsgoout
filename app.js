@@ -731,6 +731,7 @@ function scheduleStatusRefresh() {
 function renderStatus(data) {
     const details = byID('status-details');
     const inviteShare = byID('status-invite-share');
+    const summary = byID('status-summary');
     const acceptedRow = byID('status-accepted-row');
     const updatedRow = byID('status-updated-row');
     statusAutoRefreshEnabled = data.status === 'pending';
@@ -746,14 +747,16 @@ function renderStatus(data) {
     }
     if (data.status === 'pending') {
         byID('status-emoji').textContent = '💌';
-        byID('status-summary').textContent = 'Still waiting for a response.';
+        summary.textContent = 'Still waiting for a response.';
+        summary.classList.add('status-summary-pending');
         details.classList.add('hidden');
         acceptedRow.classList.add('hidden');
         byID('status-accepted').textContent = '';
         byID('status-accepted').removeAttribute('datetime');
     } else {
         byID('status-emoji').textContent = '🎉✨';
-        byID('status-summary').textContent = "It's a date! Here's the accepted plan:";
+        summary.textContent = "It's a date! Here's the accepted plan:";
+        summary.classList.remove('status-summary-pending');
         const labels = data.selected_ideas.map((id) => ideaLabel(id, data.custom_ideas));
         if (data.custom_idea) labels.push(data.custom_idea);
         addStatusRow(details, 'Vibe', labels.join(' & '));
@@ -808,6 +811,7 @@ async function deleteInvite() {
         byID('status-emoji').textContent = '🗑️';
         byID('status-title').textContent = 'Invite Deleted';
         byID('status-summary').textContent = 'Both invitation links have been permanently deleted.';
+        byID('status-summary').classList.remove('status-summary-pending');
         byID('status-details').classList.add('hidden');
         byID('status-invite-share').classList.add('hidden');
         byID('status-metadata').classList.add('hidden');
