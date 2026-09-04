@@ -236,6 +236,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
     align-self: center; max-width: 19rem; margin-bottom: 0.75rem; text-align: center;
 }
 .private-link-warning-lead { display: inline-flex; align-items: center; gap: 0.35rem; }
+.private-link-warning-lead strong { font-weight: 600; }
 .private-link-warning-icon { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; }
 .copy-status-button { margin-top: 0; }
 .share-tertiary-actions {

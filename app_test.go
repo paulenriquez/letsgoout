@@ -589,7 +589,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
 		!strings.Contains(index.Body.String(), `<script src="/app.js?v=16" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=22">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=23">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -601,8 +601,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`<span class="form-label">PRIVATE STATUS LINK</span>`,
 		`id="share-status-label">View response here`,
 		`class="private-link-warning-icon" aria-hidden="true"`,
-		`Save this private link somewhere safe.`,
-		`It can’t be recovered if lost.`,
+		`<strong>Keep this link private</strong>, and save it somewhere safe.`,
+		`It can't be recovered if lost.`,
 		`id="copy-status-btn">Copy Private Status Link 🔒`,
 		`class="share-tertiary-actions"`,
 		`class="btn btn-tertiary" id="preview-btn"`,
