@@ -638,7 +638,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=68" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=69" defer></script>`) ||
 		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=68">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
@@ -825,10 +825,16 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("accepted single idea display is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "if (!previewMode) setupInitialNoButtonPosition()", "const farthestDistance = Math.max(...candidateTargets.map(distanceTo))", "const minimumTravel = Math.min(120, farthestDistance)", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "const movingTargets = candidateTargets.filter((target) => distanceTo(target) >= minimumTravel)", "const nonOverlappingTargets = movingTargets.filter((target) => !overlapsAccept(target))", "? safeTargets", ": (nonOverlappingTargets.length > 0 ? nonOverlappingTargets : movingTargets)", "noButton.style.left = `${current.left + window.scrollX}px`", "noButton.style.top = `${current.top + window.scrollY}px`", "noButton.style.transform = `translate3d(${target.x - current.left}px, ${target.y - current.top}px, 0)`", "function settleDodge(event)", "noButton.style.left = `${settled.left + window.scrollX}px`", "function pointHitsNoButton(x, y)", "const touchPadding = 18", "if (event.pointerType !== 'mouse') return", "document.addEventListener('touchstart'", "pointHitsNoButton(touch.clientX, touch.clientY)", "{ capture: true, passive: false }", "noButton.addEventListener('pointerdown'", "noButton.addEventListener('transitionend', settleDodge)", "noButton.style.transform = 'translate3d(0, 0, 0)'", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
+	for _, marker := range []string{"const otherIncomplete = otherSelected && byID('other-freeform').value.trim().length === 0", "if (otherSelected && !customIdea)", "Tell us what you would prefer for “Other”.", "if (noButton.parentElement !== document.body) detachNoButtonForDodge()", "function detachNoButtonForDodge()", "if (!touch || previewMode || noButton.disabled) return", "const farthestDistance = Math.max(...candidateTargets.map(distanceTo))", "const minimumTravel = Math.min(120, farthestDistance)", "for (let attempt = 0; attempt < 40; attempt += 1)", "const acceptRect = byID('yes-btn').getBoundingClientRect()", "const overlapGap = 12", "const overlapsAccept = (target)", "const pathCrossesAccept = (target)", "const movingTargets = candidateTargets.filter((target) => distanceTo(target) >= minimumTravel)", "const nonOverlappingTargets = movingTargets.filter((target) => !overlapsAccept(target))", "? safeTargets", ": (nonOverlappingTargets.length > 0 ? nonOverlappingTargets : movingTargets)", "noButton.style.left = `${current.left + window.scrollX}px`", "noButton.style.top = `${current.top + window.scrollY}px`", "noButton.style.transform = `translate3d(${target.x - current.left}px, ${target.y - current.top}px, 0)`", "function settleDodge(event)", "noButton.style.left = `${settled.left + window.scrollX}px`", "function pointHitsNoButton(x, y)", "const touchPadding = 18", "if (event.pointerType !== 'mouse') return", "document.addEventListener('touchstart'", "pointHitsNoButton(touch.clientX, touch.clientY)", "{ capture: true, passive: false }", "noButton.addEventListener('pointerdown'", "noButton.addEventListener('transitionend', settleDodge)", "noButton.style.transform = 'translate3d(0, 0, 0)'", "document.body.appendChild(noButton)", "wrapper.appendChild(noButton)"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("recipient invite safeguards are missing marker %q", marker)
 		}
+	}
+	if strings.Contains(clientText, "setupInitialNoButtonPosition") || strings.Count(clientText, "detachNoButtonForDodge();") != 1 {
+		t.Fatal("decline button detaches before its first dodge")
+	}
+	if strings.Contains(clientText, "noButton.disabled || noButton.parentElement !== document.body") {
+		t.Fatal("touch cannot trigger the first decline-button dodge from static layout")
 	}
 	if strings.Contains(clientText, "if (safeTargets.length === 0) return") {
 		t.Fatal("decline button can still ignore a tap when no path-safe corner exists")

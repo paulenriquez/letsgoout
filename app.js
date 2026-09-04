@@ -589,7 +589,6 @@ function renderRecipientView(data, source = '') {
         byID('other-input-container').classList.toggle('hidden', !otherSelected);
         byID('other-freeform').setAttribute('aria-required', String(otherSelected));
         if (!otherSelected) byID('other-freeform').setAttribute('aria-invalid', 'false');
-        setupInitialNoButtonPosition();
         updateAcceptButton();
     };
     const appendIdea = (item) => {
@@ -626,7 +625,6 @@ function renderRecipientView(data, source = '') {
     byID('no-btn').disabled = previewMode;
     prepareNoButtonPosition();
     showScreen('recipient-card');
-    if (!previewMode) setupInitialNoButtonPosition();
     updateAcceptButton();
 }
 
@@ -948,7 +946,7 @@ function setupNoButton() {
     const noButton = byID('no-btn');
     function dodge() {
         if (previewMode) return;
-        if (noButton.parentElement !== document.body) setupInitialNoButtonPosition();
+        if (noButton.parentElement !== document.body) detachNoButtonForDodge();
         const current = noButton.getBoundingClientRect();
         // Rebase before transforming so WebKit does not leave pixels from the previous layer behind.
         noButton.classList.remove('dodge-ready');
@@ -1049,14 +1047,14 @@ function setupNoButton() {
     noButton.addEventListener('transitionend', settleDodge);
     document.addEventListener('touchstart', (event) => {
         const touch = event.touches[0];
-        if (!touch || previewMode || noButton.disabled || noButton.parentElement !== document.body) return;
+        if (!touch || previewMode || noButton.disabled) return;
         if (!pointHitsNoButton(touch.clientX, touch.clientY)) return;
         event.preventDefault();
         dodge();
     }, { capture: true, passive: false });
 }
 
-function setupInitialNoButtonPosition() {
+function detachNoButtonForDodge() {
     const card = byID('recipient-card');
     const noButton = byID('no-btn');
     if (card.classList.contains('hidden')) return;
