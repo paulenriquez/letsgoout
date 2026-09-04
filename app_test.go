@@ -632,8 +632,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=63" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=65">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=65" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=68">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -712,6 +712,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	if favicon.Code != http.StatusOK || favicon.Header().Get("Content-Type") != "image/svg+xml" {
 		t.Fatalf("favicon = %d, content type = %q", favicon.Code, favicon.Header().Get("Content-Type"))
 	}
+	statusCheck := request(t, handler, http.MethodGet, "/check-circle.svg", nil)
+	if statusCheck.Code != http.StatusOK || statusCheck.Header().Get("Content-Type") != "image/svg+xml" ||
+		!strings.Contains(statusCheck.Body.String(), `fill="#277a47"`) {
+		t.Fatalf("status check icon = %d, content type = %q", statusCheck.Code, statusCheck.Header().Get("Content-Type"))
+	}
 	if strings.Contains(index.Body.String(), "recipient-pronoun") {
 		t.Fatal("static index still contains pronoun selector")
 	}
@@ -739,6 +744,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	for _, marker := range []string{"summary.textContent = 'Still waiting for a response.'", "summary.classList.add('status-summary-pending')", "summary.classList.remove('status-summary-pending')"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("pending status emphasis is missing marker %q", marker)
+		}
+	}
+	for _, marker := range []string{"summary.classList.remove('status-summary-accepted')", "summary.classList.add('status-summary-accepted')", "makeElement('span', 'status-summary-confirmation')", "makeElement('img', 'status-summary-check')", "checkIcon.src = '/check-circle.svg?v=1'", "checkIcon.alt = ''", "checkIcon.setAttribute('aria-hidden', 'true')", `makeElement('span', '', "It's a date!")`, `makeElement('span', 'status-summary-caption', "Here's the accepted plan")`, "byID('status-summary').classList.remove('status-summary-accepted')"} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("accepted status confirmation is missing marker %q", marker)
 		}
 	}
 	for _, marker := range []string{"function renderStatusError(message)", "byID('status-card').classList.add('status-error-state')", "byID('status-card').classList.remove('status-error-state')", "byID('status-summary').classList.add('hidden')", "byID('status-invite-share').classList.add('hidden')", "byID('status-expires-row').classList.add('hidden')", "byID('status-actions').classList.add('hidden')", "byID('status-updated-row').classList.remove('hidden')", "renderStatusError(error.message || 'Could not refresh the status.')", "renderStatusError('You appear to be offline.')", "summary.classList.remove('hidden')", "byID('status-expires-row').classList.remove('hidden')", "byID('status-actions').classList.remove('hidden')"} {
@@ -812,7 +822,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("decline button Safari rendering safeguard is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-response { margin-bottom: 1rem; }", ".status-revisit-invite-button { width: 100%; margin: 0; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
+	for _, marker := range []string{"#recipient-card.accepted-state", "--accepted-content-gap: 1.4rem", "margin-bottom: var(--accepted-content-gap)", "margin: var(--accepted-content-gap) 0 0", "padding: 2.5rem 1.25rem 1.5rem", ".accepted-popper", ".accepted-sparkles", ".accepted-plan-grid", ".accepted-idea-single { display: block; }", ".accepted-message-text", "font-size: 1.1rem; font-weight: 400", ".accepted-replay-button { margin: 2rem 0 0; }", ".status-summary-pending::before", ".status-summary-accepted", "margin-top: 0.65rem", ".status-summary-confirmation", "color: #277a47", ".status-summary-check { width: 1.25rem", ".status-summary-caption { color: var(--text-muted); font-weight: 400", ".status-response { margin-bottom: 1rem; }", ".status-revisit-invite-button { width: 100%; margin: 0; }", "#status-card { padding-bottom: 1.1rem; }", "border-bottom: 1px solid rgba(92, 67, 71, 0.16)", "#status-card.status-error-state #status-error { margin: 1rem 0 1.5rem; }", "#status-card.status-error-state .status-metadata", "margin-top: 0; padding: 0; border-top: 0; border-bottom: 0;", "#unavailable-card.status-unavailable-state #unavailable-create-btn { margin-top: 1.25rem; }", "@keyframes status-pulse", ".status-summary-pending::before { animation: none; }", "@keyframes celebration-bounce", "@keyframes emoji-confetti-fall", "@media (prefers-reduced-motion: reduce)"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("accepted celebration styles are missing marker %q", marker)
 		}
