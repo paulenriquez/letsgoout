@@ -31,11 +31,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if cfg.DisableRateLimits {
-		log.Print("WARNING: request rate limits are disabled")
-	}
 
-	db, err := openDatabase(cfg.DatabasePath)
+	db, err := openDatabase(cfg.DatabasePath, cfg.MaxDatabaseBytes, cfg.MaxJournalBytes)
 	if err != nil {
 		log.Fatalf("open database: %v", err)
 	}
@@ -83,41 +80,38 @@ func main() {
 }
 
 type config struct {
-	ListenAddress     string
-	PublicBaseURL     string
-	DatabasePath      string
-	RateLimitHMACKey  []byte
-	CreateHourlyLimit int
-	CreateDailyLimit  int
-	GlobalDailyLimit  int
-	ViewMinuteLimit   int
-	AcceptMinuteLimit int
-	DisableRateLimits bool
+	ListenAddress    string
+	PublicBaseURL    string
+	DatabasePath     string
+	GlobalDailyLimit int
+	MaxDatabaseBytes int64
+	MaxJournalBytes  int64
 }
 
 func loadConfig() (config, error) {
-	disableRateLimits, err := envBool("DISABLE_RATE_LIMITS", false)
+	publicBaseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/")
+	if publicBaseURL == "" {
+		return config{}, fmt.Errorf("PUBLIC_BASE_URL must be set")
+	}
+	globalDailyLimit, err := envPositiveInt("GLOBAL_DAILY_LIMIT", 500)
+	if err != nil {
+		return config{}, err
+	}
+	maxDatabaseBytes, err := envPositiveInt64("MAX_DATABASE_BYTES", defaultMaxDatabaseBytes)
+	if err != nil {
+		return config{}, err
+	}
+	maxJournalBytes, err := envPositiveInt64("MAX_JOURNAL_BYTES", defaultMaxJournalBytes)
 	if err != nil {
 		return config{}, err
 	}
 	cfg := config{
-		ListenAddress:     envString("LISTEN_ADDRESS", "0.0.0.0:8080"),
-		PublicBaseURL:     strings.TrimRight(envString("PUBLIC_BASE_URL", "https://letsgoout.paulenriquez.com"), "/"),
-		DatabasePath:      envString("DATABASE_PATH", "/data/letsgoout.db"),
-		CreateHourlyLimit: envInt("CREATE_HOURLY_LIMIT", 5),
-		CreateDailyLimit:  envInt("CREATE_DAILY_LIMIT", 20),
-		GlobalDailyLimit:  envInt("GLOBAL_DAILY_LIMIT", 500),
-		ViewMinuteLimit:   envInt("VIEW_MINUTE_LIMIT", 60),
-		AcceptMinuteLimit: envInt("ACCEPT_MINUTE_LIMIT", 10),
-		DisableRateLimits: disableRateLimits,
-	}
-	key := os.Getenv("RATE_LIMIT_HMAC_KEY")
-	if !cfg.DisableRateLimits && len(key) < 32 {
-		return config{}, fmt.Errorf("RATE_LIMIT_HMAC_KEY must contain at least 32 bytes")
-	}
-	cfg.RateLimitHMACKey = []byte(key)
-	if cfg.PublicBaseURL == "" || cfg.DatabasePath == "" {
-		return config{}, fmt.Errorf("PUBLIC_BASE_URL and DATABASE_PATH must not be empty")
+		ListenAddress:    envString("LISTEN_ADDRESS", "0.0.0.0:8080"),
+		PublicBaseURL:    publicBaseURL,
+		DatabasePath:     envString("DATABASE_PATH", "/data/letsgoout.db"),
+		GlobalDailyLimit: globalDailyLimit,
+		MaxDatabaseBytes: maxDatabaseBytes,
+		MaxJournalBytes:  maxJournalBytes,
 	}
 	return cfg, nil
 }
@@ -129,32 +123,66 @@ func envString(name, fallback string) string {
 	return fallback
 }
 
-func envBool(name string, fallback bool) (bool, error) {
+func envPositiveInt(name string, fallback int) (int, error) {
 	value := os.Getenv(name)
 	if value == "" {
 		return fallback, nil
 	}
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return false, fmt.Errorf("%s must be true or false", name)
-	}
-	return parsed, nil
-}
-
-func envInt(name string, fallback int) int {
-	value := os.Getenv(name)
-	if value == "" {
-		return fallback
-	}
 	n, err := strconv.Atoi(value)
 	if err != nil || n < 1 {
-		log.Fatalf("%s must be a positive integer", name)
+		return 0, fmt.Errorf("%s must be a positive integer", name)
 	}
-	return n
+	return n, nil
 }
 
-func openDatabase(path string) (*sql.DB, error) {
-	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=busy_timeout(5000)"
+func envPositiveInt64(name string, fallback int64) (int64, error) {
+	value := os.Getenv(name)
+	if value == "" {
+		return fallback, nil
+	}
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("%s must be a positive integer", name)
+	}
+	return n, nil
+}
+
+const (
+	defaultMaxDatabaseBytes int64 = 256 << 20
+	defaultMaxJournalBytes  int64 = 8 << 20
+)
+
+func openDatabase(path string, maxDatabaseBytes, maxJournalBytes int64) (*sql.DB, error) {
+	if maxDatabaseBytes < 1 {
+		return nil, errors.New("maximum database size must be positive")
+	}
+	if maxJournalBytes < 1 {
+		return nil, errors.New("maximum journal size must be positive")
+	}
+	bootstrap, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)")
+	if err != nil {
+		return nil, err
+	}
+	bootstrap.SetMaxOpenConns(1)
+	var pageSize, pageCount int64
+	if err := bootstrap.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err == nil {
+		err = bootstrap.QueryRow(`PRAGMA page_count`).Scan(&pageCount)
+	}
+	if closeErr := bootstrap.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return nil, fmt.Errorf("inspect database size: %w", err)
+	}
+	maxPageCount := maxDatabaseBytes / pageSize
+	if maxPageCount < 1 {
+		return nil, fmt.Errorf("MAX_DATABASE_BYTES must be at least one SQLite page (%d bytes)", pageSize)
+	}
+	if pageCount > maxPageCount {
+		return nil, fmt.Errorf("database already uses %d bytes, exceeding MAX_DATABASE_BYTES=%d; raise the limit or VACUUM the database offline", pageCount*pageSize, maxDatabaseBytes)
+	}
+
+	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=busy_timeout(5000)&_pragma=max_page_count(%d)&_pragma=journal_size_limit(%d)", path, maxPageCount, maxJournalBytes)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -166,6 +194,23 @@ func openDatabase(path string) (*sql.DB, error) {
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return nil, err
+	}
+	var appliedMaxPageCount, appliedJournalLimit int64
+	if err := db.QueryRowContext(ctx, `PRAGMA max_page_count`).Scan(&appliedMaxPageCount); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("verify database page limit: %w", err)
+	}
+	if appliedMaxPageCount != maxPageCount {
+		db.Close()
+		return nil, fmt.Errorf("database page limit is %d pages, want %d", appliedMaxPageCount, maxPageCount)
+	}
+	if err := db.QueryRowContext(ctx, `PRAGMA journal_size_limit`).Scan(&appliedJournalLimit); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("verify database journal limit: %w", err)
+	}
+	if appliedJournalLimit != maxJournalBytes {
+		db.Close()
+		return nil, fmt.Errorf("database journal limit is %d bytes, want %d", appliedJournalLimit, maxJournalBytes)
 	}
 	return db, nil
 }

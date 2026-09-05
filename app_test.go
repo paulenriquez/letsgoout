@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +25,7 @@ const testOrigin = "https://letsgoout.test"
 
 func testApp(t *testing.T, now *time.Time) *app {
 	t.Helper()
-	db, err := openDatabase(filepath.Join(t.TempDir(), "test.db"))
+	db, err := openDatabase(filepath.Join(t.TempDir(), "test.db"), defaultMaxDatabaseBytes, defaultMaxJournalBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,10 +33,7 @@ func testApp(t *testing.T, now *time.Time) *app {
 	if err := applyMigrations(db, migrationFiles); err != nil {
 		t.Fatal(err)
 	}
-	cfg := config{
-		PublicBaseURL: testOrigin, DatabasePath: "unused", RateLimitHMACKey: []byte("0123456789abcdef0123456789abcdef"),
-		CreateHourlyLimit: 5, CreateDailyLimit: 20, GlobalDailyLimit: 500, ViewMinuteLimit: 1000, AcceptMinuteLimit: 1000,
-	}
+	cfg := config{PublicBaseURL: testOrigin, DatabasePath: "unused", GlobalDailyLimit: 500}
 	a, err := newApp(db, cfg, staticFiles, func() time.Time { return *now }, rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +270,7 @@ func TestEmojiCatalog(t *testing.T) {
 }
 
 func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
-	db, err := openDatabase(filepath.Join(t.TempDir(), "upgrade.db"))
+	db, err := openDatabase(filepath.Join(t.TempDir(), "upgrade.db"), defaultMaxDatabaseBytes, defaultMaxJournalBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,6 +298,10 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 	now := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
 	acceptedAt := now.Add(time.Hour)
 	expiresAt := now.Add(initialLifetime + extendedLifetime)
+	eventAt := now.Add(-time.Hour).Unix()
+	if _, err := db.Exec(`INSERT INTO creation_events(ip_hash, created_at) VALUES (?, ?)`, bytes.Repeat([]byte{3}, 32), eventAt); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`INSERT INTO invites (
 		recipient_token_hash, status_token_hash, asker_name, recipient_name, pronoun,
 		offered_ideas, proposed_slots, created_at, accepted_at, expires_at,
@@ -318,6 +319,20 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 	}
 	if pronounColumns != 0 {
 		t.Fatal("pronoun column still exists after migration")
+	}
+	var ipHashColumns int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('creation_events') WHERE name = 'ip_hash'`).Scan(&ipHashColumns); err != nil {
+		t.Fatal(err)
+	}
+	if ipHashColumns != 0 {
+		t.Fatal("creation event IP hash survived migration")
+	}
+	var migratedEventAt int64
+	if err := db.QueryRow(`SELECT created_at FROM creation_events`).Scan(&migratedEventAt); err != nil {
+		t.Fatal(err)
+	}
+	if migratedEventAt != eventAt {
+		t.Fatalf("creation event timestamp = %d, want %d", migratedEventAt, eventAt)
 	}
 
 	a, err := newApp(db, config{}, staticFiles, func() time.Time { return now }, rand.Reader)
@@ -337,32 +352,6 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 	}
 	if _, err := a.findInvite(context.Background(), "status_token_hash", statusToken); err != nil {
 		t.Fatalf("status token did not survive migration: %v", err)
-	}
-}
-
-func TestClientIPSelectionAndHMAC(t *testing.T) {
-	tests := []struct{ name, remote, forwarded, want string }{
-		{"direct", "198.51.100.7:99", "203.0.113.1", "198.51.100.7"},
-		{"trusted proxy", "127.0.0.1:99", "203.0.113.1, 10.0.0.2", "203.0.113.1"},
-		{"rightmost untrusted", "10.0.0.1:99", "198.51.100.2, 192.168.1.2, 203.0.113.9", "203.0.113.9"},
-		{"mapped", "[::ffff:192.0.2.4]:99", "", "192.0.2.4"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			req.RemoteAddr = tc.remote
-			req.Header.Set("X-Forwarded-For", tc.forwarded)
-			if got := clientIP(req).String(); got != tc.want {
-				t.Fatalf("got %s, want %s", got, tc.want)
-			}
-		})
-	}
-	now := time.Now()
-	a := testApp(t, &now)
-	h1 := a.ipHash(netip.MustParseAddr("192.0.2.1"))
-	h2 := a.ipHash(netip.MustParseAddr("192.0.2.2"))
-	if bytes.Equal(h1, h2) || bytes.Contains(h1, []byte("192.0.2.1")) {
-		t.Fatal("IP HMAC is not opaque")
 	}
 }
 
@@ -548,21 +537,125 @@ func TestExpiryCleanupAndGenericNotFound(t *testing.T) {
 	if err := a.db.QueryRow(`SELECT COUNT(*) FROM invites`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("invite count=%d err=%v", count, err)
 	}
-	if _, err := a.db.Exec(`INSERT INTO creation_events(ip_hash, created_at) VALUES (?, ?)`, make([]byte, 32), now.Add(-49*time.Hour).Unix()); err != nil {
+	cutoff := now.Add(-creationWindow).Unix()
+	if _, err := a.db.Exec(`INSERT INTO creation_events(created_at) VALUES (?), (?)`, cutoff, cutoff+1); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.cleanup(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.db.QueryRow(`SELECT COUNT(*) FROM creation_events`).Scan(&count); err != nil || count != 0 {
-		t.Fatalf("event count=%d err=%v", count, err)
+	var remainingTimestamp int64
+	if err := a.db.QueryRow(`SELECT COUNT(*), MIN(created_at) FROM creation_events`).Scan(&count, &remainingTimestamp); err != nil || count != 1 || remainingTimestamp != cutoff+1 {
+		t.Fatalf("event count=%d timestamp=%d err=%v", count, remainingTimestamp, err)
 	}
 }
 
-func TestRateLimitsOriginBodyAndUnknownFields(t *testing.T) {
+func TestGlobalCreationLimitRollingWindow(t *testing.T) {
 	now := time.Date(2030, 4, 1, 9, 0, 0, 0, time.UTC)
 	a := testApp(t, &now)
-	a.cfg.CreateHourlyLimit = 2
+	a.cfg.GlobalDailyLimit = 2
+	handler := a.routes()
+	windowStart := now
+	first := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first create = %d: %s", first.Code, first.Body.String())
+	}
+	now = now.Add(10 * time.Minute)
+	second := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+	if second.Code != http.StatusCreated {
+		t.Fatalf("second create = %d: %s", second.Code, second.Body.String())
+	}
+	limited := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+	if limited.Code != http.StatusTooManyRequests || strings.TrimSpace(limited.Body.String()) != `{"error":"invite creation limit reached"}` {
+		t.Fatalf("limited create = %d: %s", limited.Code, limited.Body.String())
+	}
+	if limited.Header().Get("Retry-After") != "85800" {
+		t.Fatalf("Retry-After = %q", limited.Header().Get("Retry-After"))
+	}
+
+	now = windowStart.Add(creationWindow)
+	reopened := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+	if reopened.Code != http.StatusCreated {
+		t.Fatalf("reopened create = %d: %s", reopened.Code, reopened.Body.String())
+	}
+}
+
+func TestCreationLimitCountsOnlyCommittedCreations(t *testing.T) {
+	now := time.Date(2030, 4, 2, 9, 0, 0, 0, time.UTC)
+	a := testApp(t, &now)
+	a.cfg.GlobalDailyLimit = 1
+	handler := a.routes()
+
+	invalid := request(t, handler, http.MethodPost, "/api/invites", createRequest{})
+	if invalid.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid create = %d: %s", invalid.Code, invalid.Body.String())
+	}
+	_, statusToken, _ := createTokens(t, handler, now, validCreate(now))
+	deleted := request(t, handler, http.MethodPost, "/api/status/delete", tokenRequest{Token: statusToken})
+	if deleted.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d: %s", deleted.Code, deleted.Body.String())
+	}
+	limited := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+	if limited.Code != http.StatusTooManyRequests {
+		t.Fatalf("create after delete = %d: %s", limited.Code, limited.Body.String())
+	}
+	var invites, events int
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM invites`).Scan(&invites); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM creation_events`).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if invites != 0 || events != 1 {
+		t.Fatalf("invites=%d events=%d", invites, events)
+	}
+}
+
+func TestConcurrentCreationsRespectGlobalLimit(t *testing.T) {
+	now := time.Date(2030, 4, 3, 9, 0, 0, 0, time.UTC)
+	a := testApp(t, &now)
+	a.cfg.GlobalDailyLimit = 5
+	handler := a.routes()
+	const workers = 24
+	var created, limited, unexpected atomic.Int32
+	var wait sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < workers; i++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			<-start
+			response := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
+			switch response.Code {
+			case http.StatusCreated:
+				created.Add(1)
+			case http.StatusTooManyRequests:
+				limited.Add(1)
+			default:
+				unexpected.Add(1)
+			}
+		}()
+	}
+	close(start)
+	wait.Wait()
+	if created.Load() != 5 || limited.Load() != workers-5 || unexpected.Load() != 0 {
+		t.Fatalf("created=%d limited=%d unexpected=%d", created.Load(), limited.Load(), unexpected.Load())
+	}
+	var invites, events int
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM invites`).Scan(&invites); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM creation_events`).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if invites != 5 || events != 5 {
+		t.Fatalf("invites=%d events=%d", invites, events)
+	}
+}
+
+func TestOriginBodyAndUnknownFields(t *testing.T) {
+	now := time.Date(2030, 4, 4, 9, 0, 0, 0, time.UTC)
+	a := testApp(t, &now)
 	handler := a.routes()
 	legacyCreate := map[string]any{
 		"asker_name": "Alex", "recipient_name": "Taylor", "pronoun": "them",
@@ -572,15 +665,6 @@ func TestRateLimitsOriginBodyAndUnknownFields(t *testing.T) {
 	legacyResponse := request(t, handler, http.MethodPost, "/api/invites", legacyCreate)
 	if legacyResponse.Code != http.StatusBadRequest {
 		t.Fatalf("legacy pronoun field = %d: %s", legacyResponse.Code, legacyResponse.Body.String())
-	}
-	for i, want := range []int{http.StatusCreated, http.StatusCreated, http.StatusTooManyRequests} {
-		response := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
-		if response.Code != want {
-			t.Fatalf("create %d = %d: %s", i, response.Code, response.Body.String())
-		}
-		if want == http.StatusTooManyRequests && response.Header().Get("Retry-After") == "" {
-			t.Fatal("missing Retry-After")
-		}
 	}
 
 	badOrigin := httptest.NewRequest(http.MethodPost, "/api/invites/view", strings.NewReader(`{"token":"anything"}`))
@@ -610,48 +694,175 @@ func TestRateLimitsOriginBodyAndUnknownFields(t *testing.T) {
 	}
 }
 
-func TestDisabledRateLimits(t *testing.T) {
-	now := time.Date(2030, 4, 2, 9, 0, 0, 0, time.UTC)
-	a := testApp(t, &now)
-	a.cfg.DisableRateLimits = true
-	a.cfg.CreateHourlyLimit = 1
-	a.cfg.CreateDailyLimit = 1
-	a.cfg.GlobalDailyLimit = 1
-	a.cfg.ViewMinuteLimit = 1
-	handler := a.routes()
+func TestLoadConfigStorageLimits(t *testing.T) {
+	t.Setenv("PUBLIC_BASE_URL", testOrigin)
+	for _, name := range []string{"GLOBAL_DAILY_LIMIT", "MAX_DATABASE_BYTES", "MAX_JOURNAL_BYTES"} {
+		t.Setenv(name, "")
+	}
+	defaults, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defaults.GlobalDailyLimit != 500 || defaults.MaxDatabaseBytes != defaultMaxDatabaseBytes || defaults.MaxJournalBytes != defaultMaxJournalBytes {
+		t.Fatalf("unexpected storage defaults: %+v", defaults)
+	}
 
-	for i := 0; i < 3; i++ {
-		response := request(t, handler, http.MethodPost, "/api/invites", validCreate(now))
-		if response.Code != http.StatusCreated {
-			t.Fatalf("create %d = %d: %s", i, response.Code, response.Body.String())
-		}
-	}
-	for i := 0; i < 3; i++ {
-		response := request(t, handler, http.MethodPost, "/api/invites/view", tokenRequest{Token: "invalid"})
-		if response.Code != http.StatusNotFound {
-			t.Fatalf("view %d = %d: %s", i, response.Code, response.Body.String())
-		}
-	}
-	var count int
-	if err := a.db.QueryRow(`SELECT COUNT(*) FROM creation_events`).Scan(&count); err != nil || count != 0 {
-		t.Fatalf("creation event count=%d err=%v", count, err)
-	}
-}
-
-func TestLoadConfigDisabledRateLimits(t *testing.T) {
-	t.Setenv("DISABLE_RATE_LIMITS", "true")
-	t.Setenv("RATE_LIMIT_HMAC_KEY", "")
+	t.Setenv("GLOBAL_DAILY_LIMIT", "123")
+	t.Setenv("MAX_DATABASE_BYTES", "1048576")
+	t.Setenv("MAX_JOURNAL_BYTES", "262144")
+	t.Setenv("DISABLE_RATE_LIMITS", "not-a-boolean")
 	cfg, err := loadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.DisableRateLimits {
-		t.Fatal("rate limits were not disabled")
+	if cfg.GlobalDailyLimit != 123 || cfg.MaxDatabaseBytes != 1048576 || cfg.MaxJournalBytes != 262144 {
+		t.Fatalf("unexpected storage config: %+v", cfg)
 	}
 
-	t.Setenv("DISABLE_RATE_LIMITS", "not-a-boolean")
-	if _, err := loadConfig(); err == nil {
-		t.Fatal("invalid boolean was accepted")
+	for _, name := range []string{"GLOBAL_DAILY_LIMIT", "MAX_DATABASE_BYTES", "MAX_JOURNAL_BYTES"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(name, "0")
+			if _, err := loadConfig(); err == nil {
+				t.Fatal("invalid storage limit was accepted")
+			}
+		})
+	}
+}
+
+func TestLoadConfigRequiresPublicBaseURL(t *testing.T) {
+	t.Setenv("PUBLIC_BASE_URL", "")
+	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "PUBLIC_BASE_URL must be set") {
+		t.Fatalf("missing PUBLIC_BASE_URL error = %v", err)
+	}
+}
+
+func TestOpenDatabaseAppliesStorageLimits(t *testing.T) {
+	const (
+		maxDatabaseBytes = int64(2 << 20)
+		maxJournalBytes  = int64(256 << 10)
+	)
+	db, err := openDatabase(filepath.Join(t.TempDir(), "limits.db"), maxDatabaseBytes, maxJournalBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var pageSize int64
+	if err := db.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	connections := make([]*sql.Conn, 0, 8)
+	defer func() {
+		for _, connection := range connections {
+			connection.Close()
+		}
+	}()
+	for i := 0; i < 8; i++ {
+		connection, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connections = append(connections, connection)
+		var maxPageCount, journalLimit int64
+		if err := connection.QueryRowContext(ctx, `PRAGMA max_page_count`).Scan(&maxPageCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := connection.QueryRowContext(ctx, `PRAGMA journal_size_limit`).Scan(&journalLimit); err != nil {
+			t.Fatal(err)
+		}
+		if maxPageCount != maxDatabaseBytes/pageSize || journalLimit != maxJournalBytes {
+			t.Fatalf("connection %d: page size=%d max pages=%d journal limit=%d", i, pageSize, maxPageCount, journalLimit)
+		}
+	}
+}
+
+func TestOpenDatabaseRejectsExistingDatabaseAboveLimit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "oversized.db")
+	db, err := openDatabase(path, defaultMaxDatabaseBytes, defaultMaxJournalBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := applyMigrations(db, migrationFiles); err != nil {
+		t.Fatal(err)
+	}
+	var pageSize, pageCount int64
+	if err := db.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`PRAGMA page_count`).Scan(&pageCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if pageCount < 2 {
+		t.Fatalf("migration database has only %d page", pageCount)
+	}
+	_, err = openDatabase(path, (pageCount-1)*pageSize, defaultMaxJournalBytes)
+	if err == nil || !strings.Contains(err.Error(), "database already uses") {
+		t.Fatalf("oversized database error = %v", err)
+	}
+}
+
+func TestDatabaseFullCreationReturnsCapacityError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "full.db")
+	db, err := openDatabase(path, defaultMaxDatabaseBytes, defaultMaxJournalBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := applyMigrations(db, migrationFiles); err != nil {
+		t.Fatal(err)
+	}
+	var pageSize, pageCount int64
+	if err := db.QueryRow(`PRAGMA page_size`).Scan(&pageSize); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`PRAGMA page_count`).Scan(&pageCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = openDatabase(path, pageCount*pageSize, defaultMaxJournalBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Date(2030, 4, 5, 9, 0, 0, 0, time.UTC)
+	a, err := newApp(db, config{PublicBaseURL: testOrigin, GlobalDailyLimit: 500}, staticFiles, func() time.Time { return now }, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := a.routes()
+	input := validCreate(now)
+	input.SenderMessage = strings.Repeat("界", maxSenderMessage)
+	capacityReached := false
+	for i := 0; i < 500; i++ {
+		response := request(t, handler, http.MethodPost, "/api/invites", input)
+		if response.Code == http.StatusInsufficientStorage {
+			if strings.TrimSpace(response.Body.String()) != `{"error":"invite storage capacity reached"}` {
+				t.Fatalf("capacity response: %s", response.Body.String())
+			}
+			capacityReached = true
+			break
+		}
+		if response.Code != http.StatusCreated {
+			t.Fatalf("create %d = %d: %s", i, response.Code, response.Body.String())
+		}
+	}
+	if !capacityReached {
+		t.Fatal("database page limit did not stop invite creation")
+	}
+	var invites, events int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM invites`).Scan(&invites); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM creation_events`).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if invites == 0 || invites != events {
+		t.Fatalf("invites=%d events=%d", invites, events)
 	}
 }
 
@@ -1038,22 +1249,5 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		if response.Code != http.StatusNotFound {
 			t.Fatalf("removed PWA asset %s = %d, want %d", asset, response.Code, http.StatusNotFound)
 		}
-	}
-}
-
-func TestMemoryLimiter(t *testing.T) {
-	limiter := newMemoryLimiter()
-	now := time.Now()
-	if ok, _ := limiter.allow("key", now, 2, time.Minute); !ok {
-		t.Fatal("first denied")
-	}
-	if ok, _ := limiter.allow("key", now.Add(time.Second), 2, time.Minute); !ok {
-		t.Fatal("second denied")
-	}
-	if ok, retry := limiter.allow("key", now.Add(2*time.Second), 2, time.Minute); ok || retry < 1 {
-		t.Fatalf("third ok=%v retry=%d", ok, retry)
-	}
-	if ok, _ := limiter.allow("key", now.Add(time.Minute+time.Second), 2, time.Minute); !ok {
-		t.Fatal("expired event was not removed")
 	}
 }

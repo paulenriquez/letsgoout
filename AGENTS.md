@@ -12,7 +12,7 @@ Let's Go Out is a dependency-light invitation web app packaged as a single Go bi
 ## Repository Map
 
 - `main.go`: configuration, database startup, embedded files, migrations, server lifecycle, and graceful shutdown.
-- `app.go`: HTTP routes, validation, token handling, persistence, rate limiting, security headers, and cleanup.
+- `app.go`: HTTP routes, validation, token handling, persistence, creation-capacity enforcement, security headers, and cleanup.
 - `app_test.go`: unit and integration coverage for the backend, migrations, security behavior, and embedded static assets.
 - `index.html`, `styles.css`, `app.js`: browser UI, creator preview, and hash-based invite/status routing.
 - `service-worker.js`: tombstone worker that removes legacy PWA caches and unregisters itself.
@@ -52,11 +52,11 @@ Let's Go Out is a dependency-light invitation web app packaged as a single Go bi
 
 ## Security and Privacy
 
-- Treat invite tokens, private status tokens, token hashes, and IP-derived rate-limit data as sensitive. Do not log or expose them unnecessarily.
+- Treat invite tokens, private status tokens, and token hashes as sensitive. Do not log or expose them unnecessarily.
 - Preserve exact-origin checks, request body limits, unknown-field rejection, security headers, and generic not-found responses.
 - Do not expose the private status capability through the recipient invite endpoint.
 - Keep state-changing operations as same-origin JSON API requests.
-- Production deployments require a `RATE_LIMIT_HMAC_KEY` containing at least 32 bytes. `DISABLE_RATE_LIMITS=true` is only for local development and tests.
+- Production deployments should keep the default global creation and database storage limits unless the available storage budget has been deliberately reviewed.
 
 ## Development and Verification
 
@@ -65,7 +65,6 @@ Run the application locally with a disposable database:
 ```sh
 PUBLIC_BASE_URL=http://localhost:8080 \
 DATABASE_PATH=/tmp/letsgoout.db \
-DISABLE_RATE_LIMITS=true \
 go run .
 ```
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
@@ -13,9 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net"
 	"net/http"
-	"net/netip"
 	"path"
 	"slices"
 	"strings"
@@ -49,7 +46,6 @@ type app struct {
 	now       func() time.Time
 	random    io.Reader
 	createMu  sync.Mutex
-	limits    *memoryLimiter
 	emojis    map[string]struct{}
 	emojiETag string
 }
@@ -60,7 +56,7 @@ func newApp(db *sql.DB, cfg config, static fs.FS, now func() time.Time, random i
 		return nil, fmt.Errorf("load emoji catalog: %w", err)
 	}
 	return &app{
-		db: db, cfg: cfg, static: static, now: now, random: random, limits: newMemoryLimiter(),
+		db: db, cfg: cfg, static: static, now: now, random: random,
 		emojis: emojis, emojiETag: etag,
 	}, nil
 }
@@ -234,15 +230,6 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(w, r) {
 		return
 	}
-	var ipHash []byte
-	if !a.cfg.DisableRateLimits {
-		ipHash = a.ipHash(clientIP(r))
-		if ok, retry := a.allowCreation(r.Context(), ipHash); !ok {
-			w.Header().Set("Retry-After", fmt.Sprint(retry))
-			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
-			return
-		}
-	}
 	var req createRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
@@ -254,6 +241,23 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ideasJSON, _ := json.Marshal(req.OfferedIdeas)
+	customIdeasJSON, _ := json.Marshal(normalizeCustomIdeas(req.CustomIdeas))
+	slotsJSON, _ := json.Marshal(req.ProposedSlots)
+	expires := now.Add(initialLifetime)
+
+	a.createMu.Lock()
+	defer a.createMu.Unlock()
+	allowed, retry, err := a.allowCreationLocked(r.Context(), now)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if !allowed {
+		w.Header().Set("Retry-After", fmt.Sprint(retry))
+		writeError(w, http.StatusTooManyRequests, "invite creation limit reached")
+		return
+	}
 	statusToken, statusHash, err := newToken(a.random)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -264,20 +268,6 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	ideasJSON, _ := json.Marshal(req.OfferedIdeas)
-	customIdeasJSON, _ := json.Marshal(normalizeCustomIdeas(req.CustomIdeas))
-	slotsJSON, _ := json.Marshal(req.ProposedSlots)
-	expires := now.Add(initialLifetime)
-
-	a.createMu.Lock()
-	defer a.createMu.Unlock()
-	if !a.cfg.DisableRateLimits {
-		if ok, retry := a.allowCreationLocked(r.Context(), ipHash, now); !ok {
-			w.Header().Set("Retry-After", fmt.Sprint(retry))
-			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
-			return
-		}
-	}
 	tx, err := a.db.BeginTx(r.Context(), nil)
 	if err == nil {
 		_, err = tx.ExecContext(r.Context(), `INSERT INTO invites (
@@ -285,18 +275,18 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 			offered_ideas, custom_ideas, sender_message, proposed_slots, created_at, expires_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, recipientHash[:], statusHash[:], strings.TrimSpace(req.AskerName), strings.TrimSpace(req.RecipientName), ideasJSON, customIdeasJSON, strings.TrimSpace(req.SenderMessage), slotsJSON, now.Unix(), expires.Unix())
 	}
-	if err == nil && !a.cfg.DisableRateLimits {
-		_, err = tx.ExecContext(r.Context(), `INSERT INTO creation_events(ip_hash, created_at) VALUES (?, ?)`, ipHash, now.Unix())
+	if err == nil {
+		_, err = tx.ExecContext(r.Context(), `INSERT INTO creation_events(created_at) VALUES (?)`, now.Unix())
 	}
 	if err != nil {
 		if tx != nil {
 			tx.Rollback()
 		}
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeMutationError(w, err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeMutationError(w, err)
 		return
 	}
 
@@ -309,9 +299,6 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) handleInviteView(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(w, r) {
-		return
-	}
-	if !a.allowMemory(w, r, "view", a.cfg.ViewMinuteLimit) {
 		return
 	}
 	var req tokenRequest
@@ -347,9 +334,6 @@ func (a *app) handleInviteView(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) handleAccept(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(w, r) {
-		return
-	}
-	if !a.allowMemory(w, r, "accept", a.cfg.AcceptMinuteLimit) {
 		return
 	}
 	var req acceptRequest
@@ -398,9 +382,6 @@ func (a *app) handleStatusView(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(w, r) {
 		return
 	}
-	if !a.allowMemory(w, r, "view", a.cfg.ViewMinuteLimit) {
-		return
-	}
 	var req tokenRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
@@ -436,9 +417,6 @@ func (a *app) handleStatusView(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) handleStatusDelete(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(w, r) {
-		return
-	}
-	if !a.allowMemory(w, r, "view", a.cfg.ViewMinuteLimit) {
 		return
 	}
 	var req tokenRequest
@@ -681,133 +659,49 @@ func writeError(w http.ResponseWriter, status int, message string) {
 }
 func writeNotFound(w http.ResponseWriter) { writeError(w, http.StatusNotFound, "not found") }
 
-func (a *app) ipHash(ip netip.Addr) []byte {
-	mac := hmac.New(sha256.New, a.cfg.RateLimitHMACKey)
-	mac.Write([]byte(ip.Unmap().String()))
-	return mac.Sum(nil)
-}
+const creationWindow = 24 * time.Hour
 
-func clientIP(r *http.Request) netip.Addr {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+func (a *app) allowCreationLocked(ctx context.Context, now time.Time) (bool, int, error) {
+	var count int
+	var oldest sql.NullInt64
+	err := a.db.QueryRowContext(ctx, `SELECT COUNT(*), MIN(created_at)
+		FROM creation_events WHERE created_at > ?`, now.Add(-creationWindow).Unix()).Scan(&count, &oldest)
 	if err != nil {
-		host = r.RemoteAddr
+		return false, 0, err
 	}
-	immediate, err := netip.ParseAddr(strings.Trim(host, "[]"))
-	if err != nil {
-		return netip.IPv4Unspecified()
+	if count < a.cfg.GlobalDailyLimit {
+		return true, 0, nil
 	}
-	immediate = immediate.Unmap()
-	if !isTrustedProxy(immediate) {
-		return immediate
+	if !oldest.Valid {
+		return false, 0, errors.New("creation limit reached without a creation timestamp")
 	}
-	parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
-	var parsed []netip.Addr
-	for _, part := range parts {
-		if ip, err := netip.ParseAddr(strings.TrimSpace(part)); err == nil {
-			parsed = append(parsed, ip.Unmap())
-		}
+	remaining := time.Unix(oldest.Int64, 0).UTC().Add(creationWindow).Sub(now)
+	retry := int((remaining + time.Second - 1) / time.Second)
+	if retry < 1 {
+		retry = 1
 	}
-	for i := len(parsed) - 1; i >= 0; i-- {
-		if !isTrustedProxy(parsed[i]) {
-			return parsed[i]
-		}
-	}
-	if len(parsed) > 0 {
-		return parsed[0]
-	}
-	return immediate
+	return false, retry, nil
 }
 
-func isTrustedProxy(ip netip.Addr) bool { return ip.IsValid() && (ip.IsPrivate() || ip.IsLoopback()) }
-
-type memoryLimiter struct {
-	mu     sync.Mutex
-	events map[string][]time.Time
+func writeMutationError(w http.ResponseWriter, err error) {
+	if isDatabaseFull(err) {
+		writeError(w, http.StatusInsufficientStorage, "invite storage capacity reached")
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "internal error")
 }
 
-func newMemoryLimiter() *memoryLimiter { return &memoryLimiter{events: make(map[string][]time.Time)} }
-
-func (l *memoryLimiter) allow(key string, now time.Time, limit int, window time.Duration) (bool, int) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	cutoff := now.Add(-window)
-	events := l.events[key]
-	first := 0
-	for first < len(events) && !events[first].After(cutoff) {
-		first++
-	}
-	events = events[first:]
-	if len(events) >= limit {
-		remaining := events[0].Add(window).Sub(now)
-		retry := int((remaining + time.Second - 1) / time.Second)
-		if retry < 1 {
-			retry = 1
-		}
-		l.events[key] = events
-		return false, retry
-	}
-	l.events[key] = append(events, now)
-	return true, 0
-}
-
-func (l *memoryLimiter) cleanup(now time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	cutoff := now.Add(-time.Minute)
-	for key, events := range l.events {
-		if len(events) == 0 || !events[len(events)-1].After(cutoff) {
-			delete(l.events, key)
-		}
-	}
-}
-
-func (a *app) allowMemory(w http.ResponseWriter, r *http.Request, bucket string, limit int) bool {
-	if a.cfg.DisableRateLimits {
-		return true
-	}
-	key := bucket + ":" + base64.RawURLEncoding.EncodeToString(a.ipHash(clientIP(r)))
-	ok, retry := a.limits.allow(key, a.now().UTC(), limit, time.Minute)
-	if !ok {
-		w.Header().Set("Retry-After", fmt.Sprint(retry))
-		writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
-	}
-	return ok
-}
-
-// allowCreation performs a cheap unlocked pre-check. The authoritative check and
-// insert are serialized with createMu so concurrent creates cannot exceed quotas.
-func (a *app) allowCreation(ctx context.Context, ipHash []byte) (bool, int) {
-	a.createMu.Lock()
-	defer a.createMu.Unlock()
-	return a.allowCreationLocked(ctx, ipHash, a.now().UTC())
-}
-
-func (a *app) allowCreationLocked(ctx context.Context, ipHash []byte, now time.Time) (bool, int) {
-	var hourly, daily, global int
-	err := a.db.QueryRowContext(ctx, `SELECT
-		COALESCE(SUM(CASE WHEN ip_hash = ? AND created_at > ? THEN 1 ELSE 0 END), 0),
-		COALESCE(SUM(CASE WHEN ip_hash = ? AND created_at > ? THEN 1 ELSE 0 END), 0),
-		COALESCE(SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END), 0)
-		FROM creation_events WHERE created_at > ?`, ipHash, now.Add(-time.Hour).Unix(), ipHash, now.Add(-24*time.Hour).Unix(), now.Add(-24*time.Hour).Unix(), now.Add(-48*time.Hour).Unix()).Scan(&hourly, &daily, &global)
-	if err != nil {
-		return false, 1
-	}
-	if hourly >= a.cfg.CreateHourlyLimit {
-		return false, 3600
-	}
-	if daily >= a.cfg.CreateDailyLimit || global >= a.cfg.GlobalDailyLimit {
-		return false, 86400
-	}
-	return true, 0
+func isDatabaseFull(err error) bool {
+	var sqliteError interface{ Code() int }
+	return errors.As(err, &sqliteError) && sqliteError.Code()&0xff == 13
 }
 
 func (a *app) cleanup(ctx context.Context) error {
 	now := a.now().UTC()
-	a.limits.cleanup(now)
 	if _, err := a.db.ExecContext(ctx, `DELETE FROM invites WHERE expires_at <= ?`, now.Unix()); err != nil {
 		return err
 	}
-	_, err := a.db.ExecContext(ctx, `DELETE FROM creation_events WHERE created_at <= ?`, now.Add(-48*time.Hour).Unix())
+	_, err := a.db.ExecContext(ctx, `DELETE FROM creation_events WHERE created_at <= ?`, now.Add(-creationWindow).Unix())
 	return err
 }
 
