@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,27 +38,31 @@ var (
 		"pizza": true, "ramen": true, "coffee": true, "drinks": true,
 		"steak": true, "gym": true, "walk": true, "run": true, "any": true,
 	}
-	validCustomIdeaEmojis = map[string]bool{
-		"🍕": true, "🍜": true, "☕": true, "🥂": true, "🥩": true, "🏋️": true,
-		"👟": true, "🏃": true, "🎁": true, "🎬": true, "🎨": true, "🎳": true,
-		"🎤": true, "🎮": true, "🧺": true, "🌅": true, "🏖️": true, "🏛️": true,
-		"📚": true, "🍦": true, "🧋": true, "🍣": true, "🌮": true, "🚲": true,
-		"🧗": true, "🎭": true, "🎡": true, "🌿": true, "✨": true,
-	}
 )
 
+const emojiCatalogPath = "emoji/emoji-data.json"
+
 type app struct {
-	db       *sql.DB
-	cfg      config
-	static   fs.FS
-	now      func() time.Time
-	random   io.Reader
-	createMu sync.Mutex
-	limits   *memoryLimiter
+	db        *sql.DB
+	cfg       config
+	static    fs.FS
+	now       func() time.Time
+	random    io.Reader
+	createMu  sync.Mutex
+	limits    *memoryLimiter
+	emojis    map[string]struct{}
+	emojiETag string
 }
 
-func newApp(db *sql.DB, cfg config, static fs.FS, now func() time.Time, random io.Reader) *app {
-	return &app{db: db, cfg: cfg, static: static, now: now, random: random, limits: newMemoryLimiter()}
+func newApp(db *sql.DB, cfg config, static fs.FS, now func() time.Time, random io.Reader) (*app, error) {
+	emojis, etag, err := loadEmojiCatalog(static)
+	if err != nil {
+		return nil, fmt.Errorf("load emoji catalog: %w", err)
+	}
+	return &app{
+		db: db, cfg: cfg, static: static, now: now, random: random, limits: newMemoryLimiter(),
+		emojis: emojis, emojiETag: etag,
+	}, nil
 }
 
 func (a *app) routes() http.Handler {
@@ -109,8 +114,71 @@ func (a *app) staticHandler() http.Handler {
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=86400")
 		}
+		if clean == emojiCatalogPath {
+			w.Header().Set("ETag", a.emojiETag)
+			if r.Header.Get("If-None-Match") == a.emojiETag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
 		files.ServeHTTP(w, r)
 	})
+}
+
+type emojiCatalogEntry struct {
+	Emoji string             `json:"emoji"`
+	Group int                `json:"group"`
+	Skins []emojiCatalogSkin `json:"skins"`
+}
+
+type emojiCatalogSkin struct {
+	Emoji string `json:"emoji"`
+}
+
+func loadEmojiCatalog(static fs.FS) (map[string]struct{}, string, error) {
+	body, err := fs.ReadFile(static, emojiCatalogPath)
+	if err != nil {
+		return nil, "", err
+	}
+	var entries []emojiCatalogEntry
+	if err := json.Unmarshal(body, &entries); err != nil {
+		return nil, "", err
+	}
+	if len(entries) == 0 {
+		return nil, "", errors.New("catalog is empty")
+	}
+	emojis := make(map[string]struct{}, len(entries)*2)
+	addEmoji := func(value string) error {
+		if !utf8.ValidString(value) || value == "" {
+			return errors.New("catalog contains an invalid emoji")
+		}
+		emojis[value] = struct{}{}
+		// Preserve compatibility with previously stored minimally-qualified forms.
+		withoutVariationSelector := strings.ReplaceAll(value, "\uFE0F", "")
+		if withoutVariationSelector != "" {
+			emojis[withoutVariationSelector] = struct{}{}
+		}
+		return nil
+	}
+	for _, entry := range entries {
+		// Group 2 contains composition components such as standalone skin tones and hair.
+		if entry.Group == 2 {
+			continue
+		}
+		if err := addEmoji(entry.Emoji); err != nil {
+			return nil, "", err
+		}
+		for _, skin := range entry.Skins {
+			if err := addEmoji(skin.Emoji); err != nil {
+				return nil, "", errors.New("catalog contains an invalid emoji variant")
+			}
+		}
+	}
+	if len(emojis) == 0 {
+		return nil, "", errors.New("catalog has no selectable emoji")
+	}
+	digest := sha256.Sum256(body)
+	return emojis, `"` + hex.EncodeToString(digest[:]) + `"`, nil
 }
 
 type createRequest struct {
@@ -181,7 +249,7 @@ func (a *app) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := a.now().UTC()
-	if err := validateCreate(req, now); err != nil {
+	if err := validateCreate(req, now, a.emojis); err != nil {
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
@@ -447,7 +515,7 @@ func (a *app) findInvite(ctx context.Context, column, token string) (inviteRecor
 	return rec, nil
 }
 
-func validateCreate(req createRequest, now time.Time) error {
+func validateCreate(req createRequest, now time.Time, validEmojis map[string]struct{}) error {
 	if !validName(req.AskerName) || !validName(req.RecipientName) {
 		return errors.New("names must be between 1 and 60 characters")
 	}
@@ -467,8 +535,8 @@ func validateCreate(req createRequest, now time.Time) error {
 	seenCustomTitles := make(map[string]bool)
 	for _, idea := range req.CustomIdeas {
 		title := strings.TrimSpace(idea.Title)
-		if !validCustomIdeaEmojis[idea.Emoji] {
-			return errors.New("custom date ideas must use an available emoji")
+		if _, ok := validEmojis[idea.Emoji]; !ok {
+			return errors.New("custom date ideas must use one available emoji")
 		}
 		if !utf8.ValidString(title) || utf8.RuneCountInString(title) < 1 || utf8.RuneCountInString(title) > maxCustomIdeaTitle {
 			return errors.New("custom date idea titles must be between 1 and 60 characters")

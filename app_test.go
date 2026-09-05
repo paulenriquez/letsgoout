@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 	"testing/iotest"
 	"time"
 )
@@ -36,7 +37,11 @@ func testApp(t *testing.T, now *time.Time) *app {
 		PublicBaseURL: testOrigin, DatabasePath: "unused", RateLimitHMACKey: []byte("0123456789abcdef0123456789abcdef"),
 		CreateHourlyLimit: 5, CreateDailyLimit: 20, GlobalDailyLimit: 500, ViewMinuteLimit: 1000, AcceptMinuteLimit: 1000,
 	}
-	return newApp(db, cfg, staticFiles, func() time.Time { return *now }, rand.Reader)
+	a, err := newApp(db, cfg, staticFiles, func() time.Time { return *now }, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
 }
 
 func request(t *testing.T, handler http.Handler, method, target string, body any) *httptest.ResponseRecorder {
@@ -133,8 +138,12 @@ func TestTokenGenerationAndHashing(t *testing.T) {
 
 func TestValidation(t *testing.T) {
 	now := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
+	emojis, _, err := loadEmojiCatalog(staticFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
 	valid := validCreate(now)
-	if err := validateCreate(valid, now); err != nil {
+	if err := validateCreate(valid, now, emojis); err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {
@@ -152,7 +161,10 @@ func TestValidation(t *testing.T) {
 		}},
 		{"bad slot", func(r *createRequest) { r.ProposedSlots = []string{"tomorrow"} }},
 		{"too many slots", func(r *createRequest) { r.ProposedSlots = []string{"1", "2", "3", "4", "5", "6"} }},
-		{"invalid custom emoji", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🌙", Title: "Moonlight"}} }},
+		{"custom emoji is text", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "moon", Title: "Moonlight"}} }},
+		{"custom emoji has whitespace", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: " 🌙", Title: "Moonlight"}} }},
+		{"custom emoji contains two emoji", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🌙✨", Title: "Moonlight"}} }},
+		{"custom emoji is a component", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🏽", Title: "Moonlight"}} }},
 		{"empty custom title", func(r *createRequest) { r.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: " "}} }},
 		{"long custom title", func(r *createRequest) {
 			r.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: strings.Repeat("界", 61)}}
@@ -169,7 +181,7 @@ func TestValidation(t *testing.T) {
 			copy.CustomIdeas = append([]customIdeaInput(nil), valid.CustomIdeas...)
 			copy.ProposedSlots = append([]string(nil), valid.ProposedSlots...)
 			tc.mutate(&copy)
-			if err := validateCreate(copy, now); err == nil {
+			if err := validateCreate(copy, now, emojis); err == nil {
 				t.Fatal("expected validation error")
 			}
 		})
@@ -178,8 +190,15 @@ func TestValidation(t *testing.T) {
 	customOnly.OfferedIdeas = nil
 	customOnly.CustomIdeas = []customIdeaInput{{Emoji: "🎬", Title: " Movie night "}}
 	customOnly.SenderMessage = " A personal note\nwith two lines. "
-	if err := validateCreate(customOnly, now); err != nil {
+	if err := validateCreate(customOnly, now, emojis); err != nil {
 		t.Fatalf("custom-only invite rejected: %v", err)
+	}
+	for _, emoji := range []string{"🌙", "🇵🇭", "1️⃣", "👨🏿‍⚕️", "🏳️‍🌈"} {
+		candidate := customOnly
+		candidate.CustomIdeas = []customIdeaInput{{Emoji: emoji, Title: "A valid idea"}}
+		if err := validateCreate(candidate, now, emojis); err != nil {
+			t.Errorf("valid emoji %q rejected: %v", emoji, err)
+		}
 	}
 	rec := inviteRecord{OfferedIdeas: []string{"pizza"}, CustomIdeas: []customIdea{{ID: "custom:0", Emoji: "🎬", Title: "Movie"}}, ProposedSlots: []string{"slot"}}
 	zero, one := 0, 1
@@ -208,6 +227,48 @@ func TestValidation(t *testing.T) {
 	}
 	if err := validateAcceptance(acceptRequest{SelectedIdeas: []string{"pizza"}, SelectedSlotIndex: &zero, RecipientMessage: " See you there! "}, rec); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEmojiCatalog(t *testing.T) {
+	emojis, etag, err := loadEmojiCatalog(staticFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(emojis) < 3000 {
+		t.Fatalf("emoji catalog contains only %d selectable entries", len(emojis))
+	}
+	if !strings.HasPrefix(etag, `"`) || !strings.HasSuffix(etag, `"`) {
+		t.Fatalf("emoji catalog ETag is not quoted: %q", etag)
+	}
+	for _, emoji := range []string{"🌙", "🇵🇭", "1️⃣", "👨🏿‍⚕️", "🏳️‍🌈"} {
+		if _, ok := emojis[emoji]; !ok {
+			t.Errorf("emoji catalog is missing %q", emoji)
+		}
+	}
+	for _, component := range []string{"🏻", "🏽", "🦰"} {
+		if _, ok := emojis[component]; ok {
+			t.Errorf("emoji component %q is selectable", component)
+		}
+	}
+
+	tests := []struct {
+		name string
+		data string
+	}{
+		{"malformed JSON", `{`},
+		{"empty catalog", `[]`},
+		{"components only", `[{"emoji":"🏽","group":2}]`},
+		{"empty emoji", `[{"emoji":"","group":0}]`},
+		{"empty variant", `[{"emoji":"😀","group":0,"skins":[{"emoji":""}]}]`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			files := fstest.MapFS{emojiCatalogPath: &fstest.MapFile{Data: []byte(tc.data)}}
+			if _, _, err := loadEmojiCatalog(files); err == nil {
+				t.Fatal("expected catalog error")
+			}
+		})
 	}
 }
 
@@ -259,7 +320,10 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 		t.Fatal("pronoun column still exists after migration")
 	}
 
-	a := newApp(db, config{}, staticFiles, func() time.Time { return now }, rand.Reader)
+	a, err := newApp(db, config{}, staticFiles, func() time.Time { return now }, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
 	record, err := a.findInvite(context.Background(), "recipient_token_hash", recipientToken)
 	if err != nil {
 		t.Fatal(err)
@@ -656,13 +720,18 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=72" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=70">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=73" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=71">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
 	}
 	for _, marker := range []string{
+		`id="emoji-picker-dialog" aria-labelledby="emoji-picker-title"`,
+		`id="emoji-search" placeholder="Try “moon”, “dinner”, or “heart”"`,
+		`id="emoji-skin-tones" role="group" aria-label="Preferred skin tone"`,
+		`id="emoji-categories" role="tablist" aria-label="Emoji categories"`,
+		`id="emoji-results" role="group" aria-labelledby="emoji-results-label"`,
 		`id="celebration-confetti" aria-hidden="true"`,
 		`id="accepted-plan" role="status" aria-live="polite" aria-atomic="true"`,
 		`id="accepted-ideas-icon" aria-hidden="true"`,
@@ -743,6 +812,18 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		!strings.Contains(statusCheck.Body.String(), `fill="#277a47"`) {
 		t.Fatalf("status check icon = %d, content type = %q", statusCheck.Code, statusCheck.Header().Get("Content-Type"))
 	}
+	emojiData := request(t, handler, http.MethodGet, "/"+emojiCatalogPath, nil)
+	if emojiData.Code != http.StatusOK || emojiData.Header().Get("Content-Type") != "application/json" ||
+		emojiData.Header().Get("ETag") == "" || emojiData.Header().Get("Cache-Control") != "public, max-age=86400" {
+		t.Fatalf("emoji data = %d, headers = %#v", emojiData.Code, emojiData.Header())
+	}
+	conditionalRequest := httptest.NewRequest(http.MethodGet, "/"+emojiCatalogPath, nil)
+	conditionalRequest.Header.Set("If-None-Match", emojiData.Header().Get("ETag"))
+	conditional := httptest.NewRecorder()
+	handler.ServeHTTP(conditional, conditionalRequest)
+	if conditional.Code != http.StatusNotModified || conditional.Body.Len() != 0 {
+		t.Fatalf("conditional emoji data = %d %q", conditional.Code, conditional.Body.String())
+	}
 	if strings.Contains(index.Body.String(), "recipient-pronoun") {
 		t.Fatal("static index still contains pronoun selector")
 	}
@@ -756,6 +837,19 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientText := string(client)
+	for _, marker := range []string{
+		"fetch('/emoji/emoji-data.json?v=17.0.0'",
+		"entry.group === 2",
+		"function renderEmojiPicker()",
+		"function openEmojiPicker(button, title)",
+		"preferredEmojiSkinTone",
+		"letsgoout-recent-emojis",
+		"setupEmojiPicker();",
+	} {
+		if !strings.Contains(clientText, marker) {
+			t.Fatalf("searchable emoji picker is missing marker %q", marker)
+		}
+	}
 	if strings.Contains(clientText, ".pronoun") {
 		t.Fatal("client still depends on pronouns")
 	}

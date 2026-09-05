@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=70">
-    <script src="/app.js?v=72" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=71">
+    <script src="/app.js?v=73" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -47,6 +47,25 @@
         <p class="form-error hidden" id="create-error" role="alert"></p>
         <button class="btn btn-primary" id="creator-preview-btn">Preview Invite 👀</button>
     </main>
+
+    <dialog class="emoji-picker-dialog" id="emoji-picker-dialog" aria-labelledby="emoji-picker-title">
+        <div class="emoji-picker-panel">
+            <div class="emoji-picker-header">
+                <h2 id="emoji-picker-title">Choose an Emoji</h2>
+                <button type="button" class="emoji-picker-close" id="emoji-picker-close" aria-label="Close emoji picker">×</button>
+            </div>
+            <p class="emoji-picker-status" id="emoji-picker-status" role="status">Loading emoji…</p>
+            <div class="emoji-picker-content hidden" id="emoji-picker-content">
+                <label class="emoji-search-label" for="emoji-search">Search Emoji</label>
+                <input type="search" id="emoji-search" placeholder="Try “moon”, “dinner”, or “heart”" autocomplete="off" autocapitalize="none" spellcheck="false">
+                <div class="emoji-skin-tones" id="emoji-skin-tones" role="group" aria-label="Preferred skin tone"></div>
+                <div class="emoji-categories" id="emoji-categories" role="tablist" aria-label="Emoji categories"></div>
+                <p class="emoji-results-label" id="emoji-results-label"></p>
+                <div class="emoji-results" id="emoji-results" role="group" aria-labelledby="emoji-results-label"></div>
+                <p class="emoji-empty hidden" id="emoji-empty">No emoji found. Try another search.</p>
+            </div>
+        </div>
+    </dialog>
 
     <main class="card hidden" id="share-card">
         <div class="header-illustration">🔗</div>

@@ -11,7 +11,27 @@ const dateCatalog = [
     { id: 'run', label: 'Run', emoji: '🏃' },
     { id: 'any', label: 'Surprise Me!', emoji: '🎁' }
 ];
-const customIdeaEmojis = ['🍕', '🍜', '☕', '🥂', '🥩', '🏋️', '👟', '🏃', '🎁', '🎬', '🎨', '🎳', '🎤', '🎮', '🧺', '🌅', '🏖️', '🏛️', '📚', '🍦', '🧋', '🍣', '🌮', '🚲', '🧗', '🎭', '🎡', '🌿', '✨'];
+const fallbackCustomIdeaEmojis = ['🍕', '🍜', '☕', '🥂', '🥩', '🏋️', '👟', '🏃', '🎁', '🎬', '🎨', '🎳', '🎤', '🎮', '🧺', '🌅', '🏖️', '🏛️', '📚', '🍦', '🧋', '🍣', '🌮', '🚲', '🧗', '🎭', '🎡', '🌿', '✨'];
+const emojiCategories = [
+    { id: 'recent', group: null, icon: '🕘', label: 'Recently used' },
+    { id: 'smileys', group: 0, icon: '😀', label: 'Smileys and emotion' },
+    { id: 'people', group: 1, icon: '👋', label: 'People and body' },
+    { id: 'nature', group: 3, icon: '🐱', label: 'Animals and nature' },
+    { id: 'food', group: 4, icon: '🍎', label: 'Food and drink' },
+    { id: 'travel', group: 5, icon: '🏠️', label: 'Travel and places' },
+    { id: 'activities', group: 6, icon: '⚽', label: 'Activities' },
+    { id: 'objects', group: 7, icon: '📝', label: 'Objects' },
+    { id: 'symbols', group: 8, icon: '⛔️', label: 'Symbols' },
+    { id: 'flags', group: 9, icon: '🏁', label: 'Flags' }
+];
+const emojiSkinTones = [
+    { tone: 0, emoji: '🖐️', label: 'Default skin tone' },
+    { tone: 1, emoji: '🖐🏻', label: 'Light skin tone' },
+    { tone: 2, emoji: '🖐🏼', label: 'Medium-light skin tone' },
+    { tone: 3, emoji: '🖐🏽', label: 'Medium skin tone' },
+    { tone: 4, emoji: '🖐🏾', label: 'Medium-dark skin tone' },
+    { tone: 5, emoji: '🖐🏿', label: 'Dark skin tone' }
+];
 const ideaByID = new Map(dateCatalog.map((item) => [item.id, item]));
 const selectedIdeas = new Set();
 const recipientSelectedIdeas = new Set();
@@ -28,6 +48,14 @@ let statusRefreshTimer = 0;
 let statusCountdownTimer = 0;
 let nextStatusRefreshAt = 0;
 let statusAutoRefreshEnabled = false;
+let emojiPickerEntries = [];
+let emojiCatalogPromise = null;
+let emojiCatalogLoaded = false;
+let emojiPickerUsesFallback = false;
+let activeEmojiButton = null;
+let activeEmojiTitle = null;
+let activeEmojiCategory = 'smileys';
+let preferredEmojiSkinTone = readStoredNumber('letsgoout-emoji-skin-tone', 0, 5);
 
 const celebrationEmojis = ['😍', '🥰', '♥️', '💘', '💗', '💓'];
 const statusRefreshInterval = 15000;
@@ -107,7 +135,8 @@ function isStringArray(value, min, max) {
 }
 
 function isCustomIdea(item, requireID) {
-    return item && (!requireID || typeof item.id === 'string') && customIdeaEmojis.includes(item.emoji) &&
+    return item && (!requireID || typeof item.id === 'string') && typeof item.emoji === 'string' &&
+        item.emoji.length > 0 && [...item.emoji].length <= 32 &&
         typeof item.title === 'string' && item.title.length > 0 && [...item.title].length <= 60;
 }
 
@@ -186,13 +215,296 @@ function setupCreatorIdeas() {
     });
 }
 
-function closeEmojiPalettes(except) {
-    document.querySelectorAll('.emoji-palette').forEach((palette) => {
-        if (palette !== except) {
-            palette.classList.add('hidden');
-            palette.parentElement.querySelector('.emoji-selector-button').setAttribute('aria-expanded', 'false');
+function readStoredNumber(key, minimum, maximum) {
+    try {
+        const value = Number(localStorage.getItem(key));
+        return Number.isInteger(value) && value >= minimum && value <= maximum ? value : minimum;
+    } catch (_) {
+        return minimum;
+    }
+}
+
+function readRecentEmojis() {
+    try {
+        const value = JSON.parse(localStorage.getItem('letsgoout-recent-emojis') || '[]');
+        return Array.isArray(value) ? value.filter((emoji) => typeof emoji === 'string').slice(0, 24) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function storeRecentEmoji(emoji) {
+    try {
+        const recent = readRecentEmojis().filter((item) => item !== emoji);
+        localStorage.setItem('letsgoout-recent-emojis', JSON.stringify([emoji, ...recent].slice(0, 24)));
+    } catch (_) {}
+}
+
+function normalizeEmojiEntry(entry) {
+    if (!entry || typeof entry.emoji !== 'string' || !Number.isInteger(entry.group) || entry.group === 2) return null;
+    const skins = Array.isArray(entry.skins)
+        ? entry.skins.filter((skin) => skin && typeof skin.emoji === 'string' && skin.emoji)
+        : [];
+    const searchParts = [
+        entry.annotation,
+        ...(Array.isArray(entry.tags) ? entry.tags : []),
+        ...(Array.isArray(entry.shortcodes) ? entry.shortcodes : [])
+    ].filter((part) => typeof part === 'string');
+    return {
+        emoji: entry.emoji,
+        group: entry.group,
+        annotation: typeof entry.annotation === 'string' ? entry.annotation : entry.emoji,
+        skins,
+        searchText: searchParts.join(' ').toLocaleLowerCase()
+    };
+}
+
+function loadEmojiCatalog() {
+    if (emojiCatalogLoaded) return Promise.resolve(emojiPickerEntries);
+    if (emojiCatalogPromise) return emojiCatalogPromise;
+    emojiCatalogPromise = fetch('/emoji/emoji-data.json?v=17.0.0', { cache: 'force-cache' })
+        .then((response) => {
+            if (!response.ok) throw new Error('Could not load emoji.');
+            return response.json();
+        })
+        .then((data) => {
+            if (!Array.isArray(data)) throw new Error('The emoji catalog is invalid.');
+            const entries = data.map(normalizeEmojiEntry).filter(Boolean);
+            if (entries.length < 1000) throw new Error('The emoji catalog is incomplete.');
+            emojiPickerEntries = entries;
+            emojiCatalogLoaded = true;
+            emojiPickerUsesFallback = false;
+            return entries;
+        })
+        .catch((error) => {
+            emojiCatalogPromise = null;
+            throw error;
+        });
+    return emojiCatalogPromise;
+}
+
+function fallbackEmojiEntries() {
+    return fallbackCustomIdeaEmojis.map((emoji) => ({
+        emoji,
+        group: -1,
+        annotation: dateCatalog.find((item) => item.emoji === emoji)?.label || `Emoji ${emoji}`,
+        skins: [],
+        searchText: ''
+    }));
+}
+
+function emojiChoiceForUnicode(unicode) {
+    for (const entry of emojiPickerEntries) {
+        if (entry.emoji === unicode) return { entry, unicode };
+        const skin = entry.skins.find((item) => item.emoji === unicode);
+        if (skin) return { entry, unicode: skin.emoji };
+    }
+    return null;
+}
+
+function emojiForPreferredTone(entry) {
+    if (preferredEmojiSkinTone === 0) return entry.emoji;
+    const skin = entry.skins.find((item) => item.tone === preferredEmojiSkinTone);
+    return skin ? skin.emoji : entry.emoji;
+}
+
+function updateEmojiPickerControls() {
+    document.querySelectorAll('.emoji-category-button').forEach((button) => {
+        button.setAttribute('aria-selected', String(button.dataset.category === activeEmojiCategory));
+        button.tabIndex = button.dataset.category === activeEmojiCategory ? 0 : -1;
+    });
+    document.querySelectorAll('.emoji-tone-button').forEach((button) => {
+        button.setAttribute('aria-pressed', String(Number(button.dataset.tone) === preferredEmojiSkinTone));
+    });
+}
+
+function renderEmojiPicker() {
+    const search = byID('emoji-search').value.trim().toLocaleLowerCase();
+    const results = byID('emoji-results');
+    const empty = byID('emoji-empty');
+    const label = byID('emoji-results-label');
+    let choices = [];
+
+    if (emojiPickerUsesFallback) {
+        choices = emojiPickerEntries.map((entry) => ({ entry, unicode: entry.emoji }));
+        label.textContent = 'Common emoji';
+    } else if (search.length === 1) {
+        label.textContent = 'Type at least two characters to search';
+    } else if (search.length > 1) {
+        const terms = search.split(/\s+/);
+        const matches = emojiPickerEntries.filter((entry) => terms.every((term) => entry.searchText.includes(term)));
+        choices = matches.slice(0, 400).map((entry) => ({ entry, unicode: emojiForPreferredTone(entry) }));
+        label.textContent = matches.length > choices.length
+            ? `Showing the first ${choices.length} of ${matches.length} results for “${search}”`
+            : `${matches.length} result${matches.length === 1 ? '' : 's'} for “${search}”`;
+    } else if (activeEmojiCategory === 'recent') {
+        choices = readRecentEmojis().map(emojiChoiceForUnicode).filter(Boolean);
+        label.textContent = 'Recently used';
+    } else {
+        const category = emojiCategories.find((item) => item.id === activeEmojiCategory) || emojiCategories[1];
+        choices = emojiPickerEntries
+            .filter((entry) => entry.group === category.group)
+            .map((entry) => ({ entry, unicode: emojiForPreferredTone(entry) }));
+        label.textContent = category.label;
+    }
+
+    const fragment = document.createDocumentFragment();
+    choices.forEach(({ entry, unicode }) => {
+        const button = makeElement('button', 'emoji-option', unicode);
+        button.type = 'button';
+        button.title = entry.annotation;
+        button.setAttribute('aria-label', entry.annotation);
+        button.addEventListener('click', () => selectEmoji(unicode));
+        fragment.appendChild(button);
+    });
+    results.replaceChildren(fragment);
+    empty.textContent = activeEmojiCategory === 'recent' && !search
+        ? 'Your recently used emoji will appear here.'
+        : 'No emoji found. Try another search.';
+    empty.classList.toggle('hidden', choices.length > 0 || search.length === 1);
+    updateEmojiPickerControls();
+}
+
+function showFullEmojiPicker() {
+    byID('emoji-picker-status').classList.add('hidden');
+    byID('emoji-picker-content').classList.remove('hidden');
+    byID('emoji-search').disabled = false;
+    byID('emoji-skin-tones').classList.remove('hidden');
+    byID('emoji-categories').classList.remove('hidden');
+    renderEmojiPicker();
+    byID('emoji-search').focus();
+}
+
+function showFallbackEmojiPicker() {
+    emojiPickerUsesFallback = true;
+    emojiPickerEntries = fallbackEmojiEntries();
+    const status = byID('emoji-picker-status');
+    status.textContent = 'The full catalog could not load. You can still choose a common emoji.';
+    status.classList.remove('hidden');
+    byID('emoji-picker-content').classList.remove('hidden');
+    byID('emoji-search').disabled = true;
+    byID('emoji-skin-tones').classList.add('hidden');
+    byID('emoji-categories').classList.add('hidden');
+    renderEmojiPicker();
+    byID('emoji-results').querySelector('button')?.focus();
+}
+
+function openEmojiPicker(button, title) {
+    activeEmojiButton = button;
+    activeEmojiTitle = title;
+    button.setAttribute('aria-expanded', 'true');
+    const dialog = byID('emoji-picker-dialog');
+    dialog.returnValue = '';
+    byID('emoji-search').value = '';
+    byID('emoji-picker-status').textContent = 'Loading emoji…';
+    byID('emoji-picker-status').classList.remove('hidden');
+    byID('emoji-picker-content').classList.add('hidden');
+    if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+    loadEmojiCatalog().then(() => {
+        if (dialog.hasAttribute('open')) showFullEmojiPicker();
+    }).catch(() => {
+        if (dialog.hasAttribute('open')) showFallbackEmojiPicker();
+    });
+}
+
+function closeEmojiPicker(value = '') {
+    const dialog = byID('emoji-picker-dialog');
+    if (typeof dialog.close === 'function' && dialog.open) {
+        dialog.close(value);
+        return;
+    }
+    dialog.removeAttribute('open');
+    finishEmojiPickerClose(value);
+}
+
+function finishEmojiPickerClose(value) {
+    const button = activeEmojiButton;
+    const title = activeEmojiTitle;
+    if (button) button.setAttribute('aria-expanded', 'false');
+    activeEmojiButton = null;
+    activeEmojiTitle = null;
+    window.setTimeout(() => {
+        if (value === 'selected' && title?.isConnected) title.focus();
+        else if (button?.isConnected) button.focus();
+    }, 0);
+}
+
+function selectEmoji(emoji) {
+    if (!activeEmojiButton) return;
+    activeEmojiButton.textContent = emoji;
+    activeEmojiButton.dataset.emoji = emoji;
+    storeRecentEmoji(emoji);
+    closeEmojiPicker('selected');
+}
+
+function setupEmojiPicker() {
+    const categories = byID('emoji-categories');
+    emojiCategories.forEach((category) => {
+        const button = makeElement('button', 'emoji-category-button', category.icon);
+        button.type = 'button';
+        button.dataset.category = category.id;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-label', category.label);
+        button.setAttribute('aria-controls', 'emoji-results');
+        button.addEventListener('click', () => {
+            activeEmojiCategory = category.id;
+            byID('emoji-search').value = '';
+            renderEmojiPicker();
+        });
+        categories.appendChild(button);
+    });
+    categories.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        const buttons = [...categories.querySelectorAll('button')];
+        const current = buttons.indexOf(document.activeElement);
+        const offset = event.key === 'ArrowRight' ? 1 : -1;
+        const next = buttons[(current + offset + buttons.length) % buttons.length];
+        event.preventDefault();
+        next.click();
+        next.focus();
+    });
+
+    const tones = byID('emoji-skin-tones');
+    emojiSkinTones.forEach((tone) => {
+        const button = makeElement('button', 'emoji-tone-button', tone.emoji);
+        button.type = 'button';
+        button.dataset.tone = String(tone.tone);
+        button.setAttribute('aria-label', tone.label);
+        button.addEventListener('click', () => {
+            preferredEmojiSkinTone = tone.tone;
+            try { localStorage.setItem('letsgoout-emoji-skin-tone', String(tone.tone)); } catch (_) {}
+            renderEmojiPicker();
+        });
+        tones.appendChild(button);
+    });
+
+    byID('emoji-search').addEventListener('input', renderEmojiPicker);
+    byID('emoji-search').addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowDown') return;
+        const first = byID('emoji-results').querySelector('button');
+        if (first) {
+            event.preventDefault();
+            first.focus();
         }
     });
+    byID('emoji-results').addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+        const buttons = [...byID('emoji-results').querySelectorAll('button')];
+        const current = buttons.indexOf(document.activeElement);
+        if (current < 0) return;
+        const columns = getComputedStyle(byID('emoji-results')).gridTemplateColumns.split(' ').length;
+        const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
+        let nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : current + offsets[event.key];
+        nextIndex = Math.max(0, Math.min(buttons.length - 1, nextIndex));
+        event.preventDefault();
+        buttons[nextIndex].focus();
+    });
+
+    const dialog = byID('emoji-picker-dialog');
+    byID('emoji-picker-close').addEventListener('click', () => closeEmojiPicker());
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) closeEmojiPicker(); });
+    dialog.addEventListener('close', () => finishEmojiPickerClose(dialog.returnValue));
+    updateEmojiPickerControls();
 }
 
 function createCustomIdeaRow() {
@@ -201,6 +513,8 @@ function createCustomIdeaRow() {
     const emojiButton = makeElement('button', 'emoji-selector-button', '✨');
     emojiButton.type = 'button';
     emojiButton.setAttribute('aria-label', 'Choose date idea emoji');
+    emojiButton.setAttribute('aria-haspopup', 'dialog');
+    emojiButton.setAttribute('aria-controls', 'emoji-picker-dialog');
     emojiButton.setAttribute('aria-expanded', 'false');
     emojiButton.dataset.emoji = '✨';
     const title = document.createElement('input');
@@ -211,31 +525,12 @@ function createCustomIdeaRow() {
     const remove = makeElement('button', 'remove-custom-idea', '×');
     remove.type = 'button';
     remove.setAttribute('aria-label', 'Remove custom date idea');
-    const palette = makeElement('div', 'emoji-palette hidden');
-    palette.setAttribute('role', 'listbox');
-    customIdeaEmojis.forEach((emoji) => {
-        const choice = makeElement('button', 'emoji-choice', emoji);
-        choice.type = 'button';
-        choice.setAttribute('aria-label', `Use ${emoji}`);
-        choice.addEventListener('click', (event) => {
-            event.stopPropagation();
-            emojiButton.textContent = emoji;
-            emojiButton.dataset.emoji = emoji;
-            palette.classList.add('hidden');
-            emojiButton.setAttribute('aria-expanded', 'false');
-            title.focus();
-        });
-        palette.appendChild(choice);
+    emojiButton.addEventListener('click', () => openEmojiPicker(emojiButton, title));
+    remove.addEventListener('click', () => {
+        if (activeEmojiButton === emojiButton) closeEmojiPicker();
+        row.remove();
     });
-    emojiButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const willOpen = palette.classList.contains('hidden');
-        closeEmojiPalettes(palette);
-        palette.classList.toggle('hidden', !willOpen);
-        emojiButton.setAttribute('aria-expanded', String(willOpen));
-    });
-    remove.addEventListener('click', () => row.remove());
-    row.append(emojiButton, title, remove, palette);
+    row.append(emojiButton, title, remove);
     wrapper.appendChild(row);
     title.focus();
 }
@@ -1087,6 +1382,7 @@ function prepareNoButtonPosition() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupCreatorIdeas();
+    setupEmojiPicker();
     createCustomPickerRow();
     setupNoButton();
     byID('start-btn').addEventListener('click', () => showScreen('asker-card'));
@@ -1123,7 +1419,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) clearStatusRefreshSchedule(); else if (statusAutoRefreshEnabled) refreshStatus();
     });
-    document.addEventListener('click', () => closeEmojiPalettes());
     window.addEventListener('online', () => { if (statusAutoRefreshEnabled) refreshStatus(); });
     window.addEventListener('offline', () => {
         if (currentStatusToken) renderStatusError('You appear to be offline.');

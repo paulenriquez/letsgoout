@@ -13,7 +13,7 @@ A date invitation app, forked from [vantanferny/letsgoout](https://github.com/va
 Compared with the [original project](https://github.com/vantanferny/letsgoout), this fork introduces three major changes:
 
 1. Replaced EmailJS and JSONBin with a lightweight, self-hosted Go service backed by SQLite. Each invitation now generates an **invite link** for the recipient and a **private status link** for the sender to check the response.
-2. Added custom date ideas, allowing senders to personalize invitations beyond the built-in options.
+2. Added custom date ideas with a searchable Unicode emoji picker, allowing senders to personalize invitations beyond the built-in options.
 3. Updated the interface to support the new flow, including separate invite and status screens, revised mobile layouts, and a dedicated accepted-invite view.
 
 ## Run locally

@@ -20,7 +20,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed index.html styles.css app.js service-worker.js favicon.ico favicon.svg check-circle.svg fonts/*.woff2
+//go:embed index.html styles.css app.js service-worker.js favicon.ico favicon.svg check-circle.svg fonts/*.woff2 emoji/*
 var staticFiles embed.FS
 
 //go:embed migrations/*.sql
@@ -45,7 +45,10 @@ func main() {
 		log.Fatalf("apply migrations: %v", err)
 	}
 
-	app := newApp(db, cfg, staticFiles, time.Now, rand.Reader)
+	app, err := newApp(db, cfg, staticFiles, time.Now, rand.Reader)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := app.cleanup(context.Background()); err != nil {
 		log.Printf("startup cleanup failed: %v", err)
 	}
