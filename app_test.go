@@ -721,7 +721,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
 		!strings.Contains(index.Body.String(), `<script src="/app.js?v=73" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=73">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=74">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -986,6 +986,9 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	if !strings.Contains(styleText, `border: 2px solid var(--accent); border-radius: 16px; font-size: 16px;`) {
 		t.Fatal("form controls can trigger automatic focus zoom in iOS Safari")
+	}
+	if !strings.Contains(styleText, `input[type="text"], textarea { cursor: text; }`) {
+		t.Fatal("text fields do not use the standard text cursor")
 	}
 	if !strings.Contains(styleText, ".preview-actions {\n    display: flex; flex-direction: column; gap: 12px; margin: 1rem 0 0.5rem;") {
 		t.Fatal("preview actions are missing the requested whitespace")

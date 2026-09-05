@@ -61,9 +61,11 @@ input[type="text"], textarea, select {
     width: 100%; padding: 0.75rem 0.85rem; padding-right: 1.8rem;
     border: 2px solid var(--accent); border-radius: 16px; font-size: 16px;
     outline: none; transition: all 0.2s ease; background-color: #fffbfe;
-    color: var(--text-main); appearance: none; cursor: pointer;
+    color: var(--text-main); appearance: none;
 }
-textarea { resize: vertical; min-height: 82px; cursor: text; line-height: 1.4; }
+input[type="text"], textarea { cursor: text; }
+textarea { resize: vertical; min-height: 82px; line-height: 1.4; }
+select { cursor: pointer; }
 .character-count { margin-top: 0.25rem; color: var(--text-muted); font-size: 0.72rem; text-align: right; }
 .select-wrapper { position: relative; width: 100%; }
 .select-wrapper::after {
