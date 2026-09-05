@@ -169,6 +169,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 }
 .emoji-results {
     display: grid; grid-template-columns: repeat(7, minmax(38px, 1fr)); gap: 3px;
+    grid-auto-rows: 42px; align-content: start;
     min-height: 170px; max-height: 46dvh; padding: 2px; overflow-y: auto; overscroll-behavior: contain;
 }
 .emoji-option { min-width: 38px; min-height: 42px; font-size: 1.45rem; line-height: 1; }

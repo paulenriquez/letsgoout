@@ -721,7 +721,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
 		!strings.Contains(index.Body.String(), `<script src="/app.js?v=73" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=71">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=72">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -981,6 +981,9 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
+	if !strings.Contains(styleText, "grid-auto-rows: 42px; align-content: start;") {
+		t.Fatal("emoji search results can stretch a partial row")
+	}
 	if !strings.Contains(styleText, ".preview-actions {\n    display: flex; flex-direction: column; gap: 12px; margin: 1rem 0 0.5rem;") {
 		t.Fatal("preview actions are missing the requested whitespace")
 	}
