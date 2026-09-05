@@ -63,6 +63,11 @@ const statusRefreshInterval = 15000;
 const byID = (id) => document.getElementById(id);
 const allScreens = ['landing-page', 'asker-card', 'share-card', 'recipient-card', 'status-card', 'unavailable-card'];
 
+function isIOSDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 function cleanupLegacyPWA() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations()
@@ -715,8 +720,8 @@ async function createInvite() {
         byID('share-instructions').textContent = `Share the invite link with ${recipientName}, and then use the private status link to view their response.`;
         byID('share-invite-label').textContent = `Share this to ${recipientName}`;
         byID('share-status-label').textContent = `Save this link to view ${recipientName}'s response`;
-        byID('generated-invite-url').textContent = result.invite_url;
-        byID('generated-status-url').textContent = result.status_url;
+        byID('generated-invite-url').value = result.invite_url;
+        byID('generated-status-url').value = result.status_url;
         showScreen('share-card');
     } catch (error) {
         showError('preview-error', error.message || 'Could not generate the links. Please try again.');
@@ -758,8 +763,8 @@ function startNewInvite() {
     byID('share-instructions').textContent = 'Share the invite link with them, and then use the private status link to view their response.';
     byID('share-invite-label').textContent = 'Share this';
     byID('share-status-label').textContent = 'Save this link to view their response';
-    byID('generated-invite-url').textContent = '';
-    byID('generated-status-url').textContent = '';
+    byID('generated-invite-url').value = '';
+    byID('generated-status-url').value = '';
     showError('create-error', '');
     showError('preview-error', '');
     showError('accept-error', '');
@@ -772,13 +777,36 @@ function startNewInvite() {
 async function copyLink(sourceID, buttonID, defaultText) {
     const button = byID(buttonID);
     try {
-        await navigator.clipboard.writeText(byID(sourceID).textContent);
+        await navigator.clipboard.writeText(byID(sourceID).value);
         button.textContent = 'Copied! ✔️';
         window.setTimeout(() => { button.textContent = defaultText; }, 2000);
     } catch (_) {
         button.textContent = 'Select and copy the link above';
         window.setTimeout(() => { button.textContent = defaultText; }, 2500);
     }
+}
+
+function setupCopyableLinkBox(boxID, sourceID, buttonID, defaultText) {
+    const box = byID(boxID);
+    const source = byID(sourceID);
+    if (isIOSDevice()) {
+        box.classList.remove('clickable-link-box');
+        box.removeAttribute('role');
+        box.removeAttribute('tabindex');
+        box.removeAttribute('aria-label');
+        source.removeAttribute('tabindex');
+        const selectLink = () => source.setSelectionRange(0, source.value.length);
+        source.addEventListener('focus', selectLink);
+        source.addEventListener('click', selectLink);
+        return;
+    }
+
+    box.addEventListener('click', () => copyLink(sourceID, buttonID, defaultText));
+    box.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        copyLink(sourceID, buttonID, defaultText);
+    });
 }
 
 function updateAcceptButton() {
@@ -1064,12 +1092,12 @@ function renderStatus(data) {
     currentStatusInviteURL = data.invite_url || '';
     if (currentStatusInviteURL) {
         byID('status-invite-label').textContent = `Share this to ${data.recipient_name}`;
-        byID('status-invite-url').textContent = currentStatusInviteURL;
+        byID('status-invite-url').value = currentStatusInviteURL;
         inviteShareDetails.classList.toggle('hidden', data.status !== 'pending');
         revisitInviteButton.classList.toggle('hidden', data.status !== 'accepted');
         inviteShare.classList.remove('hidden');
     } else {
-        byID('status-invite-url').textContent = '';
+        byID('status-invite-url').value = '';
         inviteShareDetails.classList.add('hidden');
         revisitInviteButton.classList.add('hidden');
         inviteShare.classList.add('hidden');
@@ -1381,6 +1409,7 @@ function prepareNoButtonPosition() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.documentElement.classList.toggle('ios-manual-copy', isIOSDevice());
     setupCreatorIdeas();
     setupEmojiPicker();
     createCustomPickerRow();
@@ -1390,11 +1419,11 @@ document.addEventListener('DOMContentLoaded', () => {
     byID('add-custom-idea-trigger').addEventListener('click', createCustomIdeaRow);
     byID('creator-preview-btn').addEventListener('click', previewDraft);
     byID('preview-generate-btn').addEventListener('click', createInvite);
-    byID('generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
+    setupCopyableLinkBox('generated-invite-box', 'generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋');
     byID('copy-invite-btn').addEventListener('click', () => copyLink('generated-invite-url', 'copy-invite-btn', 'Copy Invite Link 📋'));
-    byID('generated-status-box').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
+    setupCopyableLinkBox('generated-status-box', 'generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒');
     byID('copy-status-btn').addEventListener('click', () => copyLink('generated-status-url', 'copy-status-btn', 'Copy Private Status Link 🔒'));
-    byID('status-invite-box').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
+    setupCopyableLinkBox('status-invite-box', 'status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋');
     byID('status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url', 'status-copy-invite-btn', 'Copy Invite Link 📋'));
     byID('status-revisit-invite-btn').addEventListener('click', () => {
         if (currentStatusInviteURL) window.open(currentStatusInviteURL, '_blank', 'noopener,noreferrer');

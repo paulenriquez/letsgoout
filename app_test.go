@@ -720,8 +720,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=73" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=74">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=74" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=75">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -746,11 +746,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`<span class="form-label">INVITE LINK</span>`,
 		`id="share-invite-label">Share this`,
 		`id="generated-invite-box" aria-label="Copy invite link"`,
-		`class="link-box-value" id="generated-invite-url"`,
+		`class="link-box-value" id="generated-invite-url" rows="2" readonly`,
 		`<span class="form-label">PRIVATE STATUS LINK</span>`,
 		`id="share-status-label">Save this link to view their response`,
 		`id="generated-status-box" aria-label="Copy private status link"`,
-		`class="link-box-value" id="generated-status-url"`,
+		`class="link-box-value" id="generated-status-url" rows="2" readonly`,
 		`class="private-link-warning-icon" aria-hidden="true"`,
 		`<strong>For your eyes only.</strong>`,
 		`Save it somewhere you won’t lose it.`,
@@ -773,7 +773,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		`class="accepted-message-text" id="status-response-message-text"`,
 		`id="status-invite-label">Share this`,
 		`id="status-invite-box" aria-label="Copy invite link"`,
-		`class="link-box-value" id="status-invite-url"`,
+		`class="link-box-value" id="status-invite-url" rows="2" readonly`,
 		`id="status-copy-invite-btn">Copy Invite Link 📋`,
 		`id="other-freeform" maxlength="120" placeholder="Suggest something else…" aria-describedby="accept-error"`,
 		`id="yes-btn" disabled>Accept</button>`,
@@ -919,7 +919,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("status 404 page is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "generated-invite-box').addEventListener('click', () => copyLink('generated-invite-url'", "generated-status-box').addEventListener('click', () => copyLink('generated-status-url'", "status-invite-box').addEventListener('click', () => copyLink('status-invite-url'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "function isIOSDevice()", "navigator.maxTouchPoints > 1", "document.documentElement.classList.toggle('ios-manual-copy'", "setupCopyableLinkBox('generated-invite-box'", "setupCopyableLinkBox('generated-status-box'", "setupCopyableLinkBox('status-invite-box'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
@@ -981,6 +981,11 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
+	for _, marker := range []string{".ios-manual-copy .copy-link-button { display: none; }", "-webkit-user-select: text;", ".clickable-link-box .link-box-value { pointer-events: none; }"} {
+		if !strings.Contains(styleText, marker) {
+			t.Fatalf("manual link copy styles are missing marker %q", marker)
+		}
+	}
 	if !strings.Contains(styleText, "grid-auto-rows: 42px; align-content: start;") {
 		t.Fatal("emoji search results can stretch a partial row")
 	}

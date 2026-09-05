@@ -6,8 +6,8 @@
     <title>Let's Go Out! ✨</title>
     <link rel="icon" href="/favicon.ico?v=1" sizes="32x32">
     <link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="stylesheet" href="/styles.css?v=74">
-    <script src="/app.js?v=73" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=75">
+    <script src="/app.js?v=74" defer></script>
 </head>
 <body>
     <div class="landing-screen hidden" id="landing-page">
@@ -75,18 +75,18 @@
             <span class="form-label">INVITE LINK</span>
             <span class="share-link-subheading" id="share-invite-label">Share this</span>
         </div>
-        <button type="button" class="link-box clickable-link-box" id="generated-invite-box" aria-label="Copy invite link">
-            <span class="link-box-value" id="generated-invite-url"></span>
-        </button>
-        <button class="btn btn-primary" id="copy-invite-btn">Copy Invite Link 📋</button>
+        <div class="link-box clickable-link-box" id="generated-invite-box" aria-label="Copy invite link" role="button" tabindex="0">
+            <textarea class="link-box-value" id="generated-invite-url" rows="2" readonly tabindex="-1" aria-label="Invite link" autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
+        </div>
+        <button class="btn btn-primary copy-link-button" id="copy-invite-btn">Copy Invite Link 📋</button>
         <div class="private-link-heading">
             <div class="share-link-heading">
                 <span class="form-label">PRIVATE STATUS LINK</span>
                 <span class="share-link-subheading" id="share-status-label">Save this link to view their response</span>
             </div>
         </div>
-        <button type="button" class="link-box clickable-link-box status-link-box" id="generated-status-box" aria-label="Copy private status link">
-            <span class="link-box-value" id="generated-status-url"></span>
+        <div class="link-box clickable-link-box status-link-box" id="generated-status-box" aria-label="Copy private status link" role="button" tabindex="0">
+            <textarea class="link-box-value" id="generated-status-url" rows="2" readonly tabindex="-1" aria-label="Private status link" autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
             <span class="private-link-warning">
                 <span class="private-link-warning-lead">
                     <!-- Alert Triangle icon from Lucide, https://lucide.dev (ISC License). Copyright (c) 2026 Lucide Icons and Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that this notice appears in all copies. -->
@@ -100,8 +100,8 @@
                 <span>Save it somewhere you won’t lose it.</span>
                 <span>It can’t be recovered.</span>
             </span>
-        </button>
-        <button class="btn btn-secondary copy-status-button" id="copy-status-btn">Copy Private Status Link 🔒</button>
+        </div>
+        <button class="btn btn-secondary copy-link-button copy-status-button" id="copy-status-btn">Copy Private Status Link 🔒</button>
         <div class="share-tertiary-actions">
             <button class="btn btn-tertiary" id="preview-btn">Preview Invite 👀</button>
             <button class="btn btn-tertiary" id="share-back-btn">← Create New Invite</button>
@@ -205,10 +205,10 @@
                     <span class="form-label">INVITE LINK</span>
                     <span class="share-link-subheading" id="status-invite-label">Share this</span>
                 </div>
-                <button type="button" class="link-box clickable-link-box" id="status-invite-box" aria-label="Copy invite link">
-                    <span class="link-box-value" id="status-invite-url"></span>
-                </button>
-                <button class="btn btn-primary" id="status-copy-invite-btn">Copy Invite Link 📋</button>
+                <div class="link-box clickable-link-box" id="status-invite-box" aria-label="Copy invite link" role="button" tabindex="0">
+                    <textarea class="link-box-value" id="status-invite-url" rows="2" readonly tabindex="-1" aria-label="Invite link" autocomplete="off" autocapitalize="none" spellcheck="false"></textarea>
+                </div>
+                <button class="btn btn-primary copy-link-button" id="status-copy-invite-btn">Copy Invite Link 📋</button>
             </div>
             <button type="button" class="btn btn-secondary status-revisit-invite-button hidden" id="status-revisit-invite-btn">Revisit Invite Link 👀</button>
         </div>
