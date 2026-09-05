@@ -721,7 +721,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
 		!strings.Contains(index.Body.String(), `<script src="/app.js?v=75" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=76">`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=77">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -981,7 +981,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{".manual-link-copy .copy-link-button { display: none; }", "-webkit-user-select: text;", ".clickable-link-box .link-box-value { pointer-events: none; }"} {
+	for _, marker := range []string{".manual-link-copy .copy-link-button { display: none; }", "border-style: solid; user-select: none; -webkit-user-select: none;", "-webkit-user-select: text;", ".clickable-link-box .link-box-value { pointer-events: none; }", "gap: 0.35rem; color: var(--primary-button);"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("manual link copy styles are missing marker %q", marker)
 		}
