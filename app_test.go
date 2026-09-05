@@ -29,14 +29,14 @@ func testApp(t *testing.T, now *time.Time) *app {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	if err := applyMigrations(db); err != nil {
+	if err := applyMigrations(db, migrationFiles); err != nil {
 		t.Fatal(err)
 	}
 	cfg := config{
 		PublicBaseURL: testOrigin, DatabasePath: "unused", RateLimitHMACKey: []byte("0123456789abcdef0123456789abcdef"),
 		CreateHourlyLimit: 5, CreateDailyLimit: 20, GlobalDailyLimit: 500, ViewMinuteLimit: 1000, AcceptMinuteLimit: 1000,
 	}
-	return newApp(db, cfg, embeddedFiles, func() time.Time { return *now }, rand.Reader)
+	return newApp(db, cfg, staticFiles, func() time.Time { return *now }, rand.Reader)
 }
 
 func request(t *testing.T, handler http.Handler, method, target string, body any) *httptest.ResponseRecorder {
@@ -218,7 +218,7 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 	}
 	defer db.Close()
 
-	initialSchema, err := embeddedFiles.ReadFile("migrations/001_initial.sql")
+	initialSchema, err := migrationFiles.ReadFile("migrations/001_initial.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +248,7 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := applyMigrations(db); err != nil {
+	if err := applyMigrations(db, migrationFiles); err != nil {
 		t.Fatal(err)
 	}
 	var pronounColumns int
@@ -259,7 +259,7 @@ func TestRemovePronounMigrationPreservesInvites(t *testing.T) {
 		t.Fatal("pronoun column still exists after migration")
 	}
 
-	a := newApp(db, config{}, embeddedFiles, func() time.Time { return now }, rand.Reader)
+	a := newApp(db, config{}, staticFiles, func() time.Time { return now }, rand.Reader)
 	record, err := a.findInvite(context.Background(), "recipient_token_hash", recipientToken)
 	if err != nil {
 		t.Fatal(err)
@@ -626,6 +626,24 @@ func TestXSSFieldsAreJSONEscapedAndRoundTrip(t *testing.T) {
 	decodeResponse(t, status, &statusData)
 	if statusData.RecipientMessage != payload {
 		t.Fatal("recipient message did not round-trip")
+	}
+}
+
+func TestMigrationsAreNotServed(t *testing.T) {
+	now := time.Now().UTC()
+	handler := testApp(t, &now).routes()
+
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		for _, target := range []string{"/migrations/", "/migrations/001_initial.sql"} {
+			response := request(t, handler, method, target, nil)
+			if response.Code != http.StatusNotFound {
+				t.Errorf("%s %s = %d, want %d", method, target, response.Code, http.StatusNotFound)
+			}
+			body := response.Body.String()
+			if strings.Contains(body, "CREATE TABLE") || strings.Contains(body, "001_initial.sql") {
+				t.Errorf("%s %s exposed migration content: %q", method, target, body)
+			}
+		}
 	}
 }
 

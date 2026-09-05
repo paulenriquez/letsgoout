@@ -20,8 +20,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed index.html styles.css app.js service-worker.js favicon.ico favicon.svg check-circle.svg fonts/*.woff2 migrations/*.sql
-var embeddedFiles embed.FS
+//go:embed index.html styles.css app.js service-worker.js favicon.ico favicon.svg check-circle.svg fonts/*.woff2
+var staticFiles embed.FS
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
 
 func main() {
 	cfg, err := loadConfig()
@@ -38,11 +41,11 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := applyMigrations(db); err != nil {
+	if err := applyMigrations(db, migrationFiles); err != nil {
 		log.Fatalf("apply migrations: %v", err)
 	}
 
-	app := newApp(db, cfg, embeddedFiles, time.Now, rand.Reader)
+	app := newApp(db, cfg, staticFiles, time.Now, rand.Reader)
 	if err := app.cleanup(context.Background()); err != nil {
 		log.Printf("startup cleanup failed: %v", err)
 	}
@@ -164,11 +167,11 @@ func openDatabase(path string) (*sql.DB, error) {
 	return db, nil
 }
 
-func applyMigrations(db *sql.DB) error {
+func applyMigrations(db *sql.DB, migrations fs.FS) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)`); err != nil {
 		return err
 	}
-	entries, err := fs.Glob(embeddedFiles, "migrations/*.sql")
+	entries, err := fs.Glob(migrations, "migrations/*.sql")
 	if err != nil {
 		return err
 	}
@@ -187,7 +190,7 @@ func applyMigrations(db *sql.DB) error {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		body, err := embeddedFiles.ReadFile(name)
+		body, err := fs.ReadFile(migrations, name)
 		if err != nil {
 			return err
 		}
