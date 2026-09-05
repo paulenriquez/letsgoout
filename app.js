@@ -68,6 +68,11 @@ function isIOSDevice() {
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+function usesManualLinkCopy() {
+    return isIOSDevice() || !window.isSecureContext ||
+        !navigator.clipboard || typeof navigator.clipboard.writeText !== 'function';
+}
+
 function cleanupLegacyPWA() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations()
@@ -789,7 +794,7 @@ async function copyLink(sourceID, buttonID, defaultText) {
 function setupCopyableLinkBox(boxID, sourceID, buttonID, defaultText) {
     const box = byID(boxID);
     const source = byID(sourceID);
-    if (isIOSDevice()) {
+    if (usesManualLinkCopy()) {
         box.classList.remove('clickable-link-box');
         box.removeAttribute('role');
         box.removeAttribute('tabindex');
@@ -1409,7 +1414,7 @@ function prepareNoButtonPosition() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.documentElement.classList.toggle('ios-manual-copy', isIOSDevice());
+    document.documentElement.classList.toggle('manual-link-copy', usesManualLinkCopy());
     setupCreatorIdeas();
     setupEmojiPicker();
     createCustomPickerRow();

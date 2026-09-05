@@ -720,8 +720,8 @@ func TestHealthAndStaticAssets(t *testing.T) {
 	}
 	index := request(t, handler, http.MethodGet, "/", nil)
 	if index.Code != http.StatusOK ||
-		!strings.Contains(index.Body.String(), `<script src="/app.js?v=74" defer></script>`) ||
-		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=75">`) ||
+		!strings.Contains(index.Body.String(), `<script src="/app.js?v=75" defer></script>`) ||
+		!strings.Contains(index.Body.String(), `<link rel="stylesheet" href="/styles.css?v=76">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.ico?v=1" sizes="32x32">`) ||
 		!strings.Contains(index.Body.String(), `<link rel="icon" href="/favicon.svg?v=1" type="image/svg+xml" sizes="any">`) {
 		t.Fatalf("static index = %d", index.Code)
@@ -919,7 +919,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 			t.Fatalf("status 404 page is missing marker %q", marker)
 		}
 	}
-	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "function isIOSDevice()", "navigator.maxTouchPoints > 1", "document.documentElement.classList.toggle('ios-manual-copy'", "setupCopyableLinkBox('generated-invite-box'", "setupCopyableLinkBox('generated-status-box'", "setupCopyableLinkBox('status-invite-box'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
+	for _, marker := range []string{"Share this to ${recipientName}", "Save this link to view ${recipientName}'s response", "Share the invite link with ${recipientName}", "function isIOSDevice()", "function usesManualLinkCopy()", "!window.isSecureContext", "typeof navigator.clipboard.writeText !== 'function'", "navigator.maxTouchPoints > 1", "document.documentElement.classList.toggle('manual-link-copy'", "setupCopyableLinkBox('generated-invite-box'", "setupCopyableLinkBox('generated-status-box'", "setupCopyableLinkBox('status-invite-box'", "status-copy-invite-btn').addEventListener('click', () => copyLink('status-invite-url'", "startNewInvite", "${location.origin}/#/invite/", "${location.origin}/#/status/"} {
 		if !strings.Contains(clientText, marker) {
 			t.Fatalf("generated links behavior is missing marker %q", marker)
 		}
@@ -981,7 +981,7 @@ func TestHealthAndStaticAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	styleText := string(styles)
-	for _, marker := range []string{".ios-manual-copy .copy-link-button { display: none; }", "-webkit-user-select: text;", ".clickable-link-box .link-box-value { pointer-events: none; }"} {
+	for _, marker := range []string{".manual-link-copy .copy-link-button { display: none; }", "-webkit-user-select: text;", ".clickable-link-box .link-box-value { pointer-events: none; }"} {
 		if !strings.Contains(styleText, marker) {
 			t.Fatalf("manual link copy styles are missing marker %q", marker)
 		}
