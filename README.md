@@ -28,6 +28,20 @@ docker run --rm -p 8080:8080 \
 
 Open [http://localhost:8080](http://localhost:8080).
 
+## Deploy with Coolify
+
+Choose the **Docker Compose** build pack and set the Compose file location to
+`/docker-compose.yaml`. Set `PUBLIC_BASE_URL` in Coolify to the public origin,
+without a trailing slash, then assign the domain to the `letsgoout` service on
+container port `8080`.
+
+The Compose definition mounts a named volume at `/data`, where the application
+stores its SQLite database. Coolify prefixes the volume name for the resource
+and reuses it across deployments. If replacing an existing Dockerfile-based
+deployment that already contains invites, copy `/data/letsgoout.db` from that
+deployment before switching; attaching the new volume does not migrate the
+existing database automatically.
+
 ## Configuration
 
 All configuration is provided through environment variables. `PUBLIC_BASE_URL` is required; the remaining options have production-friendly defaults.

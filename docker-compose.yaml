@@ -1,0 +1,14 @@
+services:
+  letsgoout:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?}
+    expose:
+      - "8080"
+    volumes:
+      - letsgoout-data:/data
+
+volumes:
+  letsgoout-data:
