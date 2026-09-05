@@ -397,7 +397,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); backgr
 .manual-link-copy .link-box {
     border-style: solid; user-select: none; -webkit-user-select: none;
 }
-.manual-link-copy .link-box-value { cursor: text; }
+.manual-link-copy .link-box-value { cursor: text; font-size: 16px; }
 .private-link-warning {
     display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
     color: var(--text-muted); font-size: 0.74rem; line-height: 1.3;
