@@ -89,6 +89,10 @@ type config struct {
 }
 
 func loadConfig() (config, error) {
+	publicBaseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/")
+	if publicBaseURL == "" {
+		return config{}, fmt.Errorf("PUBLIC_BASE_URL must be set")
+	}
 	globalDailyLimit, err := envPositiveInt("GLOBAL_DAILY_LIMIT", 500)
 	if err != nil {
 		return config{}, err
@@ -103,14 +107,11 @@ func loadConfig() (config, error) {
 	}
 	cfg := config{
 		ListenAddress:    envString("LISTEN_ADDRESS", "0.0.0.0:8080"),
-		PublicBaseURL:    strings.TrimRight(envString("PUBLIC_BASE_URL", "https://letsgoout.paulenriquez.com"), "/"),
+		PublicBaseURL:    publicBaseURL,
 		DatabasePath:     envString("DATABASE_PATH", "/data/letsgoout.db"),
 		GlobalDailyLimit: globalDailyLimit,
 		MaxDatabaseBytes: maxDatabaseBytes,
 		MaxJournalBytes:  maxJournalBytes,
-	}
-	if cfg.PublicBaseURL == "" || cfg.DatabasePath == "" {
-		return config{}, fmt.Errorf("PUBLIC_BASE_URL and DATABASE_PATH must not be empty")
 	}
 	return cfg, nil
 }

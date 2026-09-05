@@ -695,6 +695,7 @@ func TestOriginBodyAndUnknownFields(t *testing.T) {
 }
 
 func TestLoadConfigStorageLimits(t *testing.T) {
+	t.Setenv("PUBLIC_BASE_URL", testOrigin)
 	for _, name := range []string{"GLOBAL_DAILY_LIMIT", "MAX_DATABASE_BYTES", "MAX_JOURNAL_BYTES"} {
 		t.Setenv(name, "")
 	}
@@ -725,6 +726,13 @@ func TestLoadConfigStorageLimits(t *testing.T) {
 				t.Fatal("invalid storage limit was accepted")
 			}
 		})
+	}
+}
+
+func TestLoadConfigRequiresPublicBaseURL(t *testing.T) {
+	t.Setenv("PUBLIC_BASE_URL", "")
+	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "PUBLIC_BASE_URL must be set") {
+		t.Fatalf("missing PUBLIC_BASE_URL error = %v", err)
 	}
 }
 

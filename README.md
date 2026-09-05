@@ -30,12 +30,12 @@ Open [http://localhost:8080](http://localhost:8080).
 
 ## Configuration
 
-All configuration is provided through environment variables and has a production-friendly default.
+All configuration is provided through environment variables. `PUBLIC_BASE_URL` is required; the remaining options have production-friendly defaults.
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `LISTEN_ADDRESS` | `0.0.0.0:8080` | Address and port served by the application. |
-| `PUBLIC_BASE_URL` | `https://letsgoout.paulenriquez.com` | Public origin used for exact-origin checks and generated links. Do not include a trailing slash. |
+| `PUBLIC_BASE_URL` | *(required)* | Public origin used for exact-origin checks and generated links. Do not include a trailing slash. |
 | `DATABASE_PATH` | `/data/letsgoout.db` | SQLite database path. Mount its directory on persistent storage. |
 | `GLOBAL_DAILY_LIMIT` | `500` | Successful invite creations allowed during any rolling 24-hour window. |
 | `MAX_DATABASE_BYTES` | `268435456` | Maximum SQLite main-file size (256 MiB). The application will not start if an existing database is already larger. |
