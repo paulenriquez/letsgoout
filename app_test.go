@@ -922,6 +922,24 @@ func TestMigrationsAreNotServed(t *testing.T) {
 	}
 }
 
+func TestSearchEnginesCannotIndexSite(t *testing.T) {
+	now := time.Now().UTC()
+	handler := testApp(t, &now).routes()
+	const robotsDirective = "noindex, nofollow, noarchive, nosnippet, noimageindex"
+
+	for _, target := range []string{"/", "/app.js", "/api/not-found", "/healthz", "/not-found"} {
+		response := request(t, handler, http.MethodGet, target, nil)
+		if got := response.Header().Get("X-Robots-Tag"); got != robotsDirective {
+			t.Errorf("GET %s X-Robots-Tag = %q, want %q", target, got, robotsDirective)
+		}
+	}
+
+	index := request(t, handler, http.MethodGet, "/", nil)
+	if !strings.Contains(index.Body.String(), `<meta name="robots" content="`+robotsDirective+`">`) {
+		t.Fatal("index is missing the robots meta directive")
+	}
+}
+
 func TestHealthAndStaticAssets(t *testing.T) {
 	now := time.Now().UTC()
 	handler := testApp(t, &now).routes()
